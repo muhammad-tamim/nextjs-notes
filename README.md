@@ -6,24 +6,6 @@
     - [Key Features of Next.js:](#key-features-of-nextjs)
     - [Components in Next.js:](#components-in-nextjs)
     - [Difference Between Server Component and Client Component:](#difference-between-server-component-and-client-component)
-    - [Next.js Renderings:](#nextjs-renderings)
-      - [1. Client Side Rendering(CSR):](#1-client-side-renderingcsr)
-        - [LifeCycle of CSR:](#lifecycle-of-csr)
-        - [Problems with CSR:](#problems-with-csr)
-        - [When to use CSR:](#when-to-use-csr)
-      - [2. Server Side Rendering(SSR):](#2-server-side-renderingssr)
-        - [LifeCycle of SSR:](#lifecycle-of-ssr)
-        - [Problems with SSR:](#problems-with-ssr)
-        - [When to use SSR:](#when-to-use-ssr)
-      - [3. Static Site Generation(SSG):](#3-static-site-generationssg)
-        - [LifeCycle of SSG:](#lifecycle-of-ssg)
-        - [Problems with SSG:](#problems-with-ssg)
-        - [When to use SSG:](#when-to-use-ssg)
-      - [4. Incremental Static Regeneration(ISR):](#4-incremental-static-regenerationisr)
-      - [When to use ISR:](#when-to-use-isr)
-    - [Difference Between CSR, SSR, SSG, ISR:](#difference-between-csr-ssr-ssg-isr)
-    - [Difference Between Library and Framework:](#difference-between-library-and-framework)
-    - [Difference Between React and Next.js:](#difference-between-react-and-nextjs)
 
 # Setup: 
 
@@ -50,5 +32,18 @@ In Next.js, there are two types of components:
 - Client Component: A React component that runs in the browser and the browser downloads and executes the JavaScript to render the HTML adn add ui interactivity to the page.
 
 Note: In Next.js, components are server components by default. To make a component a client component, you need to add the "use client" directive at the top of the component file.
+
+
+### Difference Between Server Component and Client Component:  
+
+| Feature                                             | Server Component          | Client Component                  |
+| --------------------------------------------------- | ------------------------- | --------------------------------- |
+| **Runs on**                                         | Server only               | Browser only                      |
+| **Can use `useState`/`useEffect`**                  | No                        | Yes                               |
+| **Can use browser APIs (`window`, `localStorage`)** | No                        | Yes                               |
+| **Can fetch data directly from database or API**    | Yes                       | Only via API route                |
+| **Default in Next.js 13+**                          | Yes                       | Must add `"use client"`           |
+| **Use case**                                        | server related works only | UI interaction related works only |
+
 
 
