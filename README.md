@@ -23,6 +23,7 @@
       - [When to use ISR:](#when-to-use-isr)
     - [Difference Between CSR, SSR, SSG, ISR:](#difference-between-csr-ssr-ssg-isr)
     - [Difference Between Library and Framework:](#difference-between-library-and-framework)
+    - [Difference Between React and Next.js:](#difference-between-react-and-nextjs)
 
 # Setup: 
 
@@ -192,3 +193,12 @@ Summary:
 | more flexible, you can combine with others tolls                                                                                                         | less flexible, you must follow its rules and conventions                                                                              |
 | focus on specific task                                                                                                                                   | provides a full solution for building entire apps                                                                                     |
 
+### Difference Between React and Next.js: 
+
+| Feature                  | **React**                                 | **Next.js**                                   |
+| ------------------------ | ----------------------------------------- | --------------------------------------------- |
+| **Type**                 | JavaScript library for building UI        | React Framework for building full-stack apps  |
+| **Rendering**            | Only client-side by default (CSR)         | Supports CSR, SSR, SSG, and ISR               |
+| **Routing**              | Manual with libraries like `react-router` | File-based routing built-in                   |
+| **Server-side features** | Needs additional setup                    | Built-in API routes and server-side rendering |
+| **SEO**                  | Poor by default (CSR)                     | Built-in SEO Optimization                     |
