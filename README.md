@@ -21,6 +21,7 @@
         - [When to use SSG:](#when-to-use-ssg)
       - [4. Incremental Static Regeneration(ISR):](#4-incremental-static-regenerationisr)
       - [When to use ISR:](#when-to-use-isr)
+    - [Difference Between CSR, SSR, SSG, ISR:](#difference-between-csr-ssr-ssg-isr)
 
 # Setup: 
 
@@ -160,4 +161,24 @@ Incremental Static Regeneration (ISR) is a feature in Next.js that combines the 
 - Blog posts with occasional updates
 - Any content that changes but not every second
 
+
+### Difference Between CSR, SSR, SSG, ISR: 
+
+| Feature            | **CSR**                 | **SSR**                       | **SSG**                       | **ISR**                                                   |
+| ------------------ | ----------------------- | ----------------------------- | ----------------------------- | --------------------------------------------------------- |
+| **Where rendered** | Browser                 | Server per request            | Server at build               | Server at build + periodic updates                        |
+| **HTML sent**      | Mostly empty            | Fully rendered                | Fully rendered                | Fully rendered                                            |
+| **Data fetching**  | Client (`useEffect`)    | Server (`getServerSideProps`) | Build time (`getStaticProps`) | Build time + background (`getStaticProps` + `revalidate`) |
+| **Interactivity**  | Hydrates after JS loads | Hydrates after HTML           | Hydrates after HTML           | Hydrates after HTML                                       |
+| **Speed / FCP**    | Slower first paint      | Fast                          | Very fast                     | Very fast, updated in background                          |
+| **SEO**            | Poor                    | Good                          | Excellent                     | Excellent                                                 |
+| **Best use case**  | Interactive apps        | Dynamic pages                 | Static pages                  | Mostly static pages with occasional updates               |
+| **Server load**    | Low                     | Higher                        | Very low                      | Low                                                       |
+| **Examples**       | Dashboards, chats       | User profiles                 | Blogs, docs                   | Products, news                                            |
+
+Summary: 
+- CSR: Rendering happens in the browser. Good for highly interactive apps.
+- SSR: Rendering happens on the server for every request. Good for dynamic pages that need fresh data.
+- SSG: Rendering happens once at build time. Good for static content that rarely changes.
+- ISR: Like SSG, but pages regenerate in the background after a revalidation time. Best for mostly static pages that occasionally update.
 
