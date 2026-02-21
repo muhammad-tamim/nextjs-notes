@@ -22,6 +22,7 @@
       - [4. Incremental Static Regeneration(ISR):](#4-incremental-static-regenerationisr)
       - [When to use ISR:](#when-to-use-isr)
     - [Difference Between CSR, SSR, SSG, ISR:](#difference-between-csr-ssr-ssg-isr)
+    - [Difference Between Library and Framework:](#difference-between-library-and-framework)
 
 # Setup: 
 
@@ -181,4 +182,13 @@ Summary:
 - SSR: Rendering happens on the server for every request. Good for dynamic pages that need fresh data.
 - SSG: Rendering happens once at build time. Good for static content that rarely changes.
 - ISR: Like SSG, but pages regenerate in the background after a revalidation time. Best for mostly static pages that occasionally update.
+
+### Difference Between Library and Framework: 
+
+| library                                                                                                                                                  | framework                                                                                                                             |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| A library is a collection of pre-written code that you can pick and use whenever you need. You decide when to call it and how to use it in your program. | A framework is a pre-defined structure that you must follow to build your application. It decides when your code runs and how to use. |
+| you cal the library, means you decide when and how to use it.                                                                                            | the framework cal you, means it decide when and how to use it.                                                                        |
+| more flexible, you can combine with others tolls                                                                                                         | less flexible, you must follow its rules and conventions                                                                              |
+| focus on specific task                                                                                                                                   | provides a full solution for building entire apps                                                                                     |
 
