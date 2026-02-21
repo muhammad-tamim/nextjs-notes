@@ -42,3 +42,13 @@ Next.js is a React framework for building high-performance, SEO-optimized web ap
 - Built-in TS and Tailwind css support
 - Automatic Code Splitting: Only loads the JavaScript needed for each page, improving performance.
 
+### Components in Next.js: 
+In Next.js, there are two types of components: 
+
+- Server Component: A React component that runs on the server and sends pre-rendered HTML.
+
+- Client Component: A React component that runs in the browser and the browser downloads and executes the JavaScript to render the HTML adn add ui interactivity to the page.
+
+Note: In Next.js, components are server components by default. To make a component a client component, you need to add the "use client" directive at the top of the component file.
+
+
