@@ -5,7 +5,6 @@
     - [What is Next.js:](#what-is-nextjs)
     - [Key Features of Next.js:](#key-features-of-nextjs)
     - [Components in Next.js:](#components-in-nextjs)
-    - [Difference Between Server Component and Client Component:](#difference-between-server-component-and-client-component)
     - [Next.js Renderings:](#nextjs-renderings)
       - [1. Client Side Rendering(CSR):](#1-client-side-renderingcsr)
         - [LifeCycle of CSR:](#lifecycle-of-csr)
@@ -45,43 +44,31 @@ Next.js is a React framework for building high-performance, SEO-optimized web ap
 ### Components in Next.js: 
 In Next.js, there are two types of components: 
 
-- Server Component: A React component that runs on the server and sends pre-rendered HTML.
+- Server Component: A React component that runs on the server. It has different types of rendering methods like SSR, SSG, ISR. 
 
-- Client Component: A React component that runs in the browser and the browser downloads and executes the JavaScript to render the HTML adn add ui interactivity to the page.
+- Client Component: A React component that runs on the browser. It has only one type of rendering methods that is CSR.
 
 Note: In Next.js, components are server components by default. To make a component a client component, you need to add the "use client" directive at the top of the component file.
 
 
-### Difference Between Server Component and Client Component:  
-
-| Feature                                             | Server Component          | Client Component                  |
-| --------------------------------------------------- | ------------------------- | --------------------------------- |
-| **Runs on**                                         | Server only               | Browser only                      |
-| **Can use `useState`/`useEffect`**                  | No                        | Yes                               |
-| **Can use browser APIs (`window`, `localStorage`)** | No                        | Yes                               |
-| **Can fetch data directly from database or API**    | Yes                       | Only via API route                |
-| **Default in Next.js 13+**                          | Yes                       | Must add `"use client"`           |
-| **Use case**                                        | server related works only | UI interaction related works only |
-
-
-
 ### Next.js Renderings:
-
-Rendering in Next.js is the process of converting your React components and data into HTML, CSS, and JavaScript that the browser can display. Depending on how the component is configured, Rendering can happen in different ways in Next.js:, like: 
+Rendering in Next.js is the process of converting your React components into HTML, CSS, and JavaScript that the browser can display. Depending on how the component is configured, Rendering can happen in different ways in Next.js:, like: 
 - Client Side Rendering (CSR): done in the browser.
 - Server Side Rendering (SSR): done on the server for every request.
 - Static Site Generation (SSG): done once at build time.
-- Incremental Static Regeneration (ISR): done at build time and updated later automatically within a revalidation period.
+- Incremental Static Regeneration (ISR): done at build time and updated later automatically within a revalidation time.
 
 #### 1. Client Side Rendering(CSR): 
-CSR is the default rendering method for React. Since Next.js components are server by default, we need the 'use client' directive to make a component run on the client.
+CSR is the default rendering method for React. Since Next.js components are server component by default, we need the 'use client' directive to make a component client component so it can use client side rendering.
 
 ##### LifeCycle of CSR: 
 - Browser sends a request to the server
-- Server sends a minimal HTML file (usually containing <div id="root"></div>), along with CSS and JavaScript bundles
-- The HTML displays a blank root div while the JavaScript is being downloaded and executed
-- Once the JavaScript bundle is executed, React mounts the application inside the root div
-- After that, data fetching happens (via useEffect or other client-side hooks), and the UI updates whenever the data is received
+- Server returns minimal HTML (div id="root") along with CSS files and JavaScript bundle
+- Browser parses HTML immediately → empty page (blank root div) is shown
+- CSS downloads → styles are applied (still not interactive)
+- JavaScript downloads and executes
+- React mounts the application inside the root div → UI becomes visible and interactive
+- After mounting, client-side data fetching happens (useEffect, etc.), and UI updates when data arrives
 
 **Note:** In React mounting is the process where a React component is created and inserted into the DOM (the HTML structure of the page) for the first time.
 
@@ -103,13 +90,15 @@ CSR is the default rendering method for React. Since Next.js components are serv
 #### 2. Server Side Rendering(SSR): 
 Server-Side Rendering means that React components are rendered on the server for each request, and the browser receives fully rendered HTML instead of a blank page.Next.js optimizes SSR by caching rendered pages, so for subsequent requests, it can serve cached HTML without re-rendering on the server.
 
-
 ##### LifeCycle of SSR:
-- browser sends a requests to the server
-- Server executes React components and fetches required data.
-- Server sends pre-rendered HTML (with content already inside the root container), along with CSS and JavaScript bundles.
-- The browser displays the rendered HTML immediately
-- Once the JavaScript is downloaded and executed, React hydrates the page.
+- Browser sends a request to the server
+- Server executes React components and fetches required data
+- Server generates fully rendered HTML
+- Server returns rendered HTML along with CSS files and JavaScript bundle
+- Browser parses HTML immediately → full content is visible (already rendered)
+- CSS downloads → styles are applied
+- JavaScript downloads and executes
+- React hydrates the existing HTML → page becomes fully interactive
 
 **Note**: Hydration means React takes the HTML that was rendered on the server (or pre-built) and “activates” it in the browser by attaching event listeners, connecting it to React’s virtual DOM, and making it fully interactive.
 
@@ -132,15 +121,15 @@ Static Site Generation (SSG) means that React components are rendered to HTML at
 In Next.js, we need to use getStaticProps() to fetch data at build time and can getStaticPaths() for dynamic routes that need pre-rendering.
 
 ##### LifeCycle of SSG: 
-
-At Build Time: 
-- Next.js executes React components and fetches data (if any).
-- Static HTML files are generated for each page along with CSS and JS bundles.
-
-At Request Time: 
-- Browser sends a request to the server.
-- Server serves the pre-rendered HTML immediately along with CSS and JS bundles.
-- If the page contains client-side components, React hydrates them after the JavaScript is downloaded and executed.
+- During build time, the server executes React components
+- Required data is fetched at build time
+- Static HTML files are generated and stored
+- Browser sends a request to the server/CDN
+- Server/CDN returns pre-generated HTML along with CSS files and JavaScript bundle
+- Browser parses HTML immediately → full content is visible
+- CSS downloads → styles are applied
+- JavaScript downloads and executes
+- React hydrates the static HTML → page becomes interactive page contains client-side components, React hydrates them after the JavaScript is downloaded and executed.
 
 ##### Problems with SSG: 
 - Content can become outdated.
@@ -158,11 +147,15 @@ ISR allows you to update SSG pages after deployment without rebuilding the entir
 Incremental Static Regeneration (ISR) is a feature in Next.js that combines the speed of SSG with the flexibility of SSR. With ISR, we can specify a revalidation time for each page, and Next.js will automatically regenerate the page in the background when a request comes in after the revalidation time has passed.
 
 #### When to use ISR: 
-- E-commerce product pages
-- News articles
-- Blog posts with occasional updates
-- Any content that changes but not every second
-
+- During build time, the server generates static HTML (like SSG)
+- Browser sends a request to the server/CDN
+- Server/CDN returns static HTML along with CSS files and JavaScript bundle
+- Browser parses HTML immediately → full content is visible
+- CSS downloads → styles are applied
+- JavaScript downloads and executes
+- React hydrates the HTML → page becomes interactive
+- After the revalidation time, the server regenerates the page in the background
+- The next request receives the updated static HTML
 
 ### Difference Between CSR, SSR, SSG, ISR: 
 
@@ -179,10 +172,10 @@ Incremental Static Regeneration (ISR) is a feature in Next.js that combines the 
 | **Examples**       | Dashboards, chats       | User profiles                 | Blogs, docs                   | Products, news                                            |
 
 Summary: 
-- CSR: Rendering happens in the browser. Good for highly interactive apps.
-- SSR: Rendering happens on the server for every request. Good for dynamic pages that need fresh data.
-- SSG: Rendering happens once at build time. Good for static content that rarely changes.
-- ISR: Like SSG, but pages regenerate in the background after a revalidation time. Best for mostly static pages that occasionally update.
+- CSR → Server sends empty HTML → React builds UI
+- SSR → Server builds HTML per request → React hydrates
+- SSG → Server builds HTML at build time → React hydrates
+- ISR → Server builds HTML at build time + regenerates later → React hydrates
 
 ### Difference Between Library and Framework: 
 
