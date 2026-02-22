@@ -29,6 +29,7 @@
   - [Routing Files:](#routing-files)
   - [Nested Routes:](#nested-routes)
   - [Dynamic Routes:](#dynamic-routes)
+  - [Parallel Routes:](#parallel-routes)
   - [Route Groups and Private Folders:](#route-groups-and-private-folders)
     - [Route Groups:](#route-groups)
     - [Private Folders:](#private-folders)
@@ -433,6 +434,44 @@ summary:
 | `[slug]`      | Exactly 1 segment  | `string`                |
 | `[...slug]`   | 1 or more segments | `string[]`              |
 | `[[...slug]]` | 0 or more segments | `string[] \| undefined` |
+
+
+## Parallel Routes: 
+Parallel Routes (@folder) render multiple routes at the same time without unmounting each other. Perfect for sidebars, persistent headers, dashboards.
+
+```
+app/
+ ├─ layout.tsx
+ ├─ @sidebar/
+ │   └─ page.tsx
+ └─ main/
+     └─ page.tsx
+```
+
+```tsx
+export default function RootLayout({ children }) {
+  return (
+    <div>
+      <div className="flex">
+
+        <div className="w-1/4 bg-gray-100">
+          {/* Parallel slot */}
+          <Slot name="sidebar" />
+        </div>
+      
+        <div className="flex-1 p-4">
+          {/* Main content */}
+          {children}
+        </div>
+      
+      </div>
+    </div>
+  );
+}
+```
+
+here, The `<Slot name="sidebar" />` will render content from @sidebar/page.js and Navigating between main/page.tsx and other pages does not unmount the sidebar.
+
 
 ## Route Groups and Private Folders:
 
