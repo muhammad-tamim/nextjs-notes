@@ -23,6 +23,8 @@
     - [Difference Between CSR, SSR, SSG, ISR:](#difference-between-csr-ssr-ssg-isr)
     - [Difference Between Library and Framework:](#difference-between-library-and-framework)
     - [Difference Between React and Next.js:](#difference-between-react-and-nextjs)
+- [Folder and File Conventions:](#folder-and-file-conventions)
+  - [Top-level Folders:](#top-level-folders)
 
 # Setup: 
 
@@ -243,3 +245,21 @@ Summary:
 | **Routing**              | Manual with libraries like `react-router` | File-based routing built-in                   |
 | **Server-side features** | Needs additional setup                    | Built-in API routes and server-side rendering |
 | **SEO**                  | Poor by default (CSR)                     | Built-in SEO Optimization                     |
+
+# Folder and File Conventions:
+
+## Top-level Folders:
+Top-level folders are used to organize your application's code and static assets.
+
+- app:	App Router
+- public:	Static assets to be served
+- node_modules: The folder where all NPM installed packages and their dependencies are stored, so our project can run on node.js.
+- src: Optional folder to organize code in large projects (not create by default, you can choose to create it) . It Serves as a central location for all your source code, instead of keeping everything at the project root. It contains: 
+  - src/app/ 
+  - src/components/ → reusable UI components.
+  - src/styles/ → CSS or Tailwind/DaisyUI styling.
+  - src/lib/ → helper functions, API clients, utilities.
+  - src/context/ → React context providers.
+  - src/hooks/ → custom hooks.
+  - src/types/ → TypeScript types.
+
