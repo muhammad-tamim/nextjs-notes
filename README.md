@@ -28,6 +28,7 @@
   - [Top-level Files:](#top-level-files)
   - [Routing Files:](#routing-files)
   - [Nested Routes:](#nested-routes)
+  - [Dynamic Routes:](#dynamic-routes)
 
 # Setup: 
 
@@ -371,3 +372,62 @@ src
 | `dashboard/analytics/reports/yearly/page.tsx` | `/dashboard/analytics/reports/yearly` |
 | `dashboard/users/active/page.tsx`             | `/dashboard/users/active`             |
 | `dashboard/settings/security/page.tsx`        | `/dashboard/settings/security`        |
+
+## Dynamic Routes: 
+Dynamic routes are routes where a part of the URL is variable, not fixed. They are created using square brackets.
+
+In Next.js there are three types of dynamic route segments available:
+
+1. [slug] → Matches exactly 1 URL segment.
+
+```
+blog/[slug]/page.tsx
+
+<!-- Matches: -->
+
+/blog/post-1
+/blog/hello-world
+
+<!-- Does NOT match: -->
+
+/blog/2024/post-1   
+```
+
+2. [...slug] — Matches 1 or more URL segments.
+
+```
+blog/[...slug]/page.tsx
+
+<!-- Matches: -->
+
+/blog/a
+/blog/a/b
+/blog/a/b/c
+
+<!-- Does NOT match: -->
+
+/blog    
+```
+
+
+3. [[...slug]] — Matches 0 or more URL segments.
+
+```
+blog/[[...slug]]/page.tsx
+
+<!-- Matches: -->
+
+/blog
+/blog/a
+/blog/a/b
+/blog/a/b/c
+```
+
+summary: 
+
+| Pattern       | Matches            | Type of param           |
+| ------------- | ------------------ | ----------------------- |
+| `[slug]`      | Exactly 1 segment  | `string`                |
+| `[...slug]`   | 1 or more segments | `string[]`              |
+| `[[...slug]]` | 0 or more segments | `string[] \| undefined` |
+
