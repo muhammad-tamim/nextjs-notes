@@ -30,6 +30,11 @@
   - [Nested Routes:](#nested-routes)
   - [Dynamic Routes:](#dynamic-routes)
   - [Parallel Routes:](#parallel-routes)
+  - [Intercepted Routes:](#intercepted-routes)
+    - [1. Intercept Sibling (.)folder:](#1-intercept-sibling-folder)
+    - [2. Intercept Parent (..)folder:](#2-intercept-parent-folder)
+    - [3. Intercept Two Levels (..)(..)folder:](#3-intercept-two-levels-folder)
+    - [4. Intercept From Root (...)folder](#4-intercept-from-root-folder)
   - [Route Groups and Private Folders:](#route-groups-and-private-folders)
     - [Route Groups:](#route-groups)
     - [Private Folders:](#private-folders)
@@ -472,6 +477,62 @@ export default function RootLayout({ children }) {
 
 here, The `<Slot name="sidebar" />` will render content from @sidebar/page.js and Navigating between main/page.tsx and other pages does not unmount the sidebar.
 
+## Intercepted Routes: 
+Intercepted routes allow overlays or modals a route on top of the current route, without unmounting the underlying route.
+
+In Next.js there are 4 types of intercepted available: 
+
+### 1. Intercept Sibling (.)folder: 
+Preview a sibling page in a modal.
+
+```
+app/
+ ├─ dashboard/
+ │   ├─ page.js
+ │   └─ (.)details/
+ │       └─ page.js
+```
+
+here, Navigate to /dashboard/(.)details → modal appears on top of dashboard without  un-mounted Dashboard.
+
+### 2. Intercept Parent (..)folder: 
+Open a child route as an overlay on the parent.
+
+```
+app/
+ ├─ projects/
+ │   ├─ page.js
+ │   └─ (..)tasks/
+ │       └─ page.js
+```
+
+Navigating to /projects/(..)tasks shows tasks overlay while the parent projects page remains visible.
+
+### 3. Intercept Two Levels (..)(..)folder: 
+Deep nested modals or overlays.
+
+```
+app/
+ ├─ organization/
+ │   ├─ page.js
+ │   └─ teams/
+ │       └─ page.js
+ │       └─ (..)(..)members/
+ │           └─ page.js
+```
+
+Shows members overlay two levels up in the hierarchy.
+
+### 4. Intercept From Root (...)folder
+Global modal anywhere in the app.
+
+```
+app/
+ ├─ page.js
+ └─ (...)loginModal/
+     └─ page.js
+```
+Navigate to / (...)loginModal → modal opens on top of any current page. Base page remains mounted, state preserved.
 
 ## Route Groups and Private Folders:
 
