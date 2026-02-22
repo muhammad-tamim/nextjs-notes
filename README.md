@@ -19,7 +19,8 @@
         - [Problems with SSG:](#problems-with-ssg)
         - [When to use SSG:](#when-to-use-ssg)
       - [4. Incremental Static Regeneration(ISR):](#4-incremental-static-regenerationisr)
-      - [When to use ISR:](#when-to-use-isr)
+        - [Problems with ISR:](#problems-with-isr)
+        - [When to use ISR:](#when-to-use-isr)
     - [Difference Between CSR, SSR, SSG, ISR:](#difference-between-csr-ssr-ssg-isr)
     - [Difference Between Library and Framework:](#difference-between-library-and-framework)
     - [Difference Between React and Next.js:](#difference-between-react-and-nextjs)
@@ -38,6 +39,18 @@
   - [Route Groups and Private Folders:](#route-groups-and-private-folders)
     - [Route Groups:](#route-groups)
     - [Private Folders:](#private-folders)
+  - [Organizing project:](#organizing-project)
+    - [Colocation:](#colocation)
+    - [Private Folders:](#private-folders-1)
+    - [Route groups:](#route-groups-1)
+    - [src folder](#src-folder)
+    - [Store project files outside of app:](#store-project-files-outside-of-app)
+    - [Store project files in top-level folders inside of app:](#store-project-files-in-top-level-folders-inside-of-app)
+    - [Split project files by feature or route:](#split-project-files-by-feature-or-route)
+    - [Organize routes without affecting the URL path:](#organize-routes-without-affecting-the-url-path)
+    - [Opting specific segments into a layout:](#opting-specific-segments-into-a-layout)
+    - [Opting for loading skeletons on a specific route:](#opting-for-loading-skeletons-on-a-specific-route)
+    - [Creating multiple root layouts:](#creating-multiple-root-layouts)
 
 # Setup: 
 
@@ -209,7 +222,9 @@ ISR allows you to update SSG pages after deployment without rebuilding the entir
 
 Incremental Static Regeneration (ISR) is a feature in Next.js that combines the speed of SSG with the flexibility of SSR. With ISR, we can specify a revalidation time for each page, and Next.js will automatically regenerate the page in the background when a request comes in after the revalidation time has passed.
 
-#### When to use ISR: 
+##### Problems with ISR:
+
+##### When to use ISR: 
 - During build time, the server generates static HTML (like SSG)
 - Browser sends a request to the server/CDN
 - Server/CDN returns static HTML along with CSS files and JavaScript bundle
@@ -574,3 +589,75 @@ dashboard/
 ```
 
 The _components and _utils folder is not a route and Cannot be accessed in the browser. It's Exists only for making our routes folder clean and organized.
+
+## Organizing project: 
+
+### Colocation:
+In the app directory, nested folders define route structure. Each folder represents a route segment that is mapped to a corresponding segment in a URL path.
+
+However, even though route structure is defined through folders, a route is not publicly accessible until a page.js or route.js file is added to a route segment.
+
+![image](./assets/images/Folder-and-file-conventions/colocation1.avif)
+![image](./assets/images/Folder-and-file-conventions/colocation2.avif)
+
+This means that project files can be safely colocated inside route segments in the app directory without accidentally being routable.
+
+![image](./assets/images/Folder-and-file-conventions/colocation3.avif)
+
+### Private Folders: 
+Private folders are not routable at all.
+
+![image](./assets/images/Folder-and-file-conventions/private-folders.avif)
+
+
+### Route groups: 
+Routes groups don't create routes.
+
+![image](./assets/images/Folder-and-file-conventions/route-groups.avif)
+
+### src folder
+
+![image](./assets/images/Folder-and-file-conventions/src-directory.avif)
+
+### Store project files outside of app: 
+This strategy stores all application code in shared folders in the root of your project and keeps the app directory purely for routing purposes.
+
+![image](./assets/images/Folder-and-file-conventions/project-organization-project-root.avif)
+
+### Store project files in top-level folders inside of app:
+This strategy stores all application code in shared folders in the root of the app directory.
+
+![image](./assets/images/Folder-and-file-conventions/project-organization-app-root.avif)
+
+### Split project files by feature or route:
+This strategy stores globally shared application code in the root app directory and splits more specific application code into the route segments that use them.
+
+![image](./assets/images/Folder-and-file-conventions/project-organization-app-root-split.avif)
+
+### Organize routes without affecting the URL path: 
+To organize routes without affecting the URL, create a group to keep related routes together. The folders in parenthesis will be omitted from the URL (e.g. (marketing) or (shop)).
+
+![image](./assets/images/Folder-and-file-conventions/route-group-organisation.avif)
+
+Even though routes inside (marketing) and (shop) share the same URL hierarchy, you can create a different layout for each group by adding a layout.js file inside their folders.
+
+![image](./assets/images/Folder-and-file-conventions/route-group-multiple-layouts.avif)
+
+### Opting specific segments into a layout:
+To opt specific routes into a layout, create a new route group (e.g. (shop)) and move the routes that share the same layout into the group (e.g. account and cart). The routes outside of the group will not share the layout (e.g. checkout).
+
+![image](./assets/images/Folder-and-file-conventions/route-group-opt-in-layouts.avif)
+
+### Opting for loading skeletons on a specific route: 
+To apply a loading skeleton via a loading.js file to a specific route, create a new route group (e.g., /(overview)) and then move your loading.tsx inside that route group.
+
+![image](./assets/images/Folder-and-file-conventions/route-group-loading.avif)
+
+Now, the loading.tsx file will only apply to your dashboard → overview page instead of all your dashboard pages without affecting the URL path structure.
+
+### Creating multiple root layouts: 
+To create multiple root layouts, remove the top-level layout.js file, and add a layout.js file inside each route group. This is useful for partitioning an application into sections that have a completely different UI or experience. The <html> and <body> tags need to be added to each root layout.
+
+![image](./assets/images/Folder-and-file-conventions/route-group-multiple-root-layouts.avif)
+
+In the example above, both (marketing) and (shop) have their own root layout.
