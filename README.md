@@ -26,6 +26,7 @@
 - [Folder and File Conventions:](#folder-and-file-conventions)
   - [Top-level Folders:](#top-level-folders)
   - [Top-level Files:](#top-level-files)
+  - [Routing Files:](#routing-files)
 
 # Setup: 
 
@@ -306,3 +307,18 @@ Top-level files are used to configure your application, manage dependencies, run
 - tsconfig.json: Configuration file for TypeScript. It tells the TypeScript compiler (tsc) how to compile your TypeScript code into JavaScript.
 
 ![alt text](./assets/images/Folder-and-file-conventions/tsconfig-json.png)
+
+## Routing Files:
+Routing files are special files that define how routes behave, what UI they render, and how errors/loading states are handled.
+
+| File           | Purpose                                                  |
+| -------------- | -------------------------------------------------------- |
+| `layout`       | Shared layout for multiple pages                         |
+| `page`         | Main content for client API endpoint                     |
+| `route`        | API endpoint (server-side logic)                         |
+| `template`     | Layout that re-renders on nested route changes           |
+| `default`      | Fallback page for parallel routes when no route matches. |
+| `loading`      | UI shown while route/page is loading                     |
+| `not-found`    | 404 page UI                                              |
+| `error`        | Error UI for a specific route                            |
+| `global-error` | Error UI for the entire app                              |
