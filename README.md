@@ -51,6 +51,13 @@
     - [Opting specific segments into a layout:](#opting-specific-segments-into-a-layout)
     - [Opting for loading skeletons on a specific route:](#opting-for-loading-skeletons-on-a-specific-route)
     - [Creating multiple root layouts:](#creating-multiple-root-layouts)
+- [Layouts and Pages:](#layouts-and-pages)
+  - [Creating a page:](#creating-a-page)
+  - [Creating a layout:](#creating-a-layout)
+  - [Creating a nested route:](#creating-a-nested-route)
+  - [Nesting layouts:](#nesting-layouts)
+  - [Creating a dynamic segment:](#creating-a-dynamic-segment)
+  - [Linking between pages:](#linking-between-pages)
 
 # Setup: 
 
@@ -661,3 +668,84 @@ To create multiple root layouts, remove the top-level layout.js file, and add a 
 ![image](./assets/images/Folder-and-file-conventions/route-group-multiple-root-layouts.avif)
 
 In the example above, both (marketing) and (shop) have their own root layout.
+
+# Layouts and Pages:
+
+## Creating a page:
+A page is a UI that is rendered on a specific route.
+
+![image](./assets/images/layouts-and-pages/page-special-file.avif)
+
+## Creating a layout: 
+A layout is UI that is shared between multiple pages.
+
+![image](./assets/images/layouts-and-pages/layout-special-file.avif)
+
+The layout above is called a root layout because it's defined at the root of the app directory. The root layout is required and must contain html and body tags.
+
+## Creating a nested route: 
+A nested route is a route composed of multiple URL segments. For example, the /blog/[slug] route is composed of three segments:
+- / (Root Segment)
+- blog (Segment)
+- [slug] (Leaf Segment)
+
+In Next.js:
+- Folders are used to define the route segments that map to URL segments.
+- Files (like page and layout) are used to create UI that is shown for a segment.
+
+To create nested routes, you can nest folders inside each other. For example, to add a route for /blog, create a folder called blog in the app directory. Then, to make /blog publicly accessible, add a page.tsx file:
+
+![image](./assets/images/layouts-and-pages/blog-nested-route.avif)
+
+You can continue nesting folders to create nested routes. For example, to create a route for a specific blog post, create a new [slug] folder inside blog and add a page file:
+
+![image](./assets/images/layouts-and-pages/blog-post-nested-route.avif)
+
+Wrapping a folder name in square brackets (e.g. [slug]) creates a dynamic route segment which is used to generate multiple pages from data. e.g. blog posts, product pages, etc.
+
+## Nesting layouts:
+
+![image](./assets/images/layouts-and-pages/nested-layouts.avif)
+
+## Creating a dynamic segment: 
+
+```tsx
+export default async function BlogPostPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}) {
+  const { slug } = await params
+  const post = await getPost(slug)
+ 
+  return (
+    <div>
+      <h1>{post.title}</h1>
+      <p>{post.content}</p>
+    </div>
+  )
+}
+```
+
+## Linking between pages: 
+You can use the `<Link>` component to navigate between routes. `<Link>` is a built-in Next.js component that extends the HTML `<a>` tag to provide prefetching and client-side navigation.
+
+For example, to generate a list of blog posts, import `<Link>` from next/link and pass a href prop to the component:
+
+```tsx
+import Link from 'next/link'
+ 
+export default async function Post({ post }) {
+  const posts = await getPosts()
+ 
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li key={post.slug}>
+          <Link href={`/blog/${post.slug}`}>{post.title}</Link>
+        </li>
+      ))}
+    </ul>
+  )
+}
+```
