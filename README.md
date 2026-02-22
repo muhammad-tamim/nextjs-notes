@@ -29,6 +29,9 @@
   - [Routing Files:](#routing-files)
   - [Nested Routes:](#nested-routes)
   - [Dynamic Routes:](#dynamic-routes)
+  - [Route Groups and Private Folders:](#route-groups-and-private-folders)
+    - [Route Groups:](#route-groups)
+    - [Private Folders:](#private-folders)
 
 # Setup: 
 
@@ -431,3 +434,43 @@ summary:
 | `[...slug]`   | 1 or more segments | `string[]`              |
 | `[[...slug]]` | 0 or more segments | `string[] \| undefined` |
 
+## Route Groups and Private Folders:
+
+### Route Groups:
+Route groups (folderName) used to separate features or sections of a route without affecting the URL.
+
+```
+app/
+  (auth)/
+    login/
+    register/
+
+  (dashboard)/
+    analytics/
+    users/
+```
+
+Even though folders are grouped: /login, /register, /analytics, /users etc, there is no (auth) or (dashboard) in the URL. 
+
+### Private Folders:
+Private folders (_folderName) used to organize internal components, helpers, or utilities of a route without affecting the URL
+
+Instead of mixing:
+
+```
+dashboard/
+  page.tsx
+  componentA.tsx
+  componentB.tsx
+  helper.ts
+```
+we can do:
+
+```
+dashboard/
+  page.tsx
+  _components/
+  _utils/
+```
+
+The _components and _utils folder is not a route and Cannot be accessed in the browser. It's Exists only for making our routes folder clean and organized.
