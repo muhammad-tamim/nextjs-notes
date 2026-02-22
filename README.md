@@ -27,6 +27,7 @@
   - [Top-level Folders:](#top-level-folders)
   - [Top-level Files:](#top-level-files)
   - [Routing Files:](#routing-files)
+  - [Nested Routes:](#nested-routes)
 
 # Setup: 
 
@@ -322,3 +323,51 @@ Routing files are special files that define how routes behave, what UI they rend
 | `not-found`    | 404 page UI                                              |
 | `error`        | Error UI for a specific route                            |
 | `global-error` | Error UI for the entire app                              |
+
+
+## Nested Routes:
+Nested routes are pages inside other pages.
+
+```
+src
+└── app
+    ├── layout.tsx                     
+    ├── page.tsx                       (/)
+
+    └── dashboard
+        ├── layout.tsx                 
+        ├── page.tsx                   (/dashboard)
+
+        ├── analytics
+        │   ├── page.tsx               (/dashboard/analytics)
+        │   └── reports
+        │       ├── page.tsx           (/dashboard/analytics/reports)
+        │       ├── yearly
+        │       │   └── page.tsx       (/dashboard/analytics/reports/yearly)
+        │       └── monthly
+        │           └── page.tsx       (/dashboard/analytics/reports/monthly)
+
+        ├── users
+        │   ├── page.tsx               (/dashboard/users)
+        │   ├── active
+        │   │   └── page.tsx           (/dashboard/users/active)
+        │   └── inactive
+        │       └── page.tsx           (/dashboard/users/inactive)
+
+        └── settings
+            ├── page.tsx               (/dashboard/settings)
+            ├── profile
+            │   └── page.tsx           (/dashboard/settings/profile)
+            └── security
+                └── page.tsx           (/dashboard/settings/security)
+```
+
+| File Location                                 | URL                                   |
+| --------------------------------------------- | ------------------------------------- |
+| `app/page.tsx`                                | `/`                                   |
+| `dashboard/page.tsx`                          | `/dashboard`                          |
+| `dashboard/analytics/page.tsx`                | `/dashboard/analytics`                |
+| `dashboard/analytics/reports/page.tsx`        | `/dashboard/analytics/reports`        |
+| `dashboard/analytics/reports/yearly/page.tsx` | `/dashboard/analytics/reports/yearly` |
+| `dashboard/users/active/page.tsx`             | `/dashboard/users/active`             |
+| `dashboard/settings/security/page.tsx`        | `/dashboard/settings/security`        |
