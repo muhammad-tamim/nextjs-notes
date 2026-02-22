@@ -25,6 +25,7 @@
     - [Difference Between React and Next.js:](#difference-between-react-and-nextjs)
 - [Folder and File Conventions:](#folder-and-file-conventions)
   - [Top-level Folders:](#top-level-folders)
+  - [Top-level Files:](#top-level-files)
 
 # Setup: 
 
@@ -263,3 +264,45 @@ Top-level folders are used to organize your application's code and static assets
   - src/hooks/ → custom hooks.
   - src/types/ → TypeScript types.
 
+## Top-level Files: 
+Top-level files are used to configure your application, manage dependencies, run proxy, integrate monitoring tools, and define environment variables.
+
+- next.config.js: Configuration file for Next.js
+  
+![alt text](./assets/images/Folder-and-file-conventions/next.config.js.png)
+
+- package.json: Is a human-readable file that declares the dependencies, dev-dependencies, scripts, and metadata of our project.
+
+  - dependencies – Packages needed to run the app (e.g., React, Next.js, daisyui etc).
+  - devDependencies – Packages needed for development only (e.g., typescript, eslint, tailwindcss etc).
+  - scripts – Commands for running tasks like dev, build, start.
+  - Metadata – Project name, version, author, license, description
+
+![alt text](./assets/images/Folder-and-file-conventions/package-json.png)
+
+- package-lock.json: Is an auto-generated file that locks the exact versions of all installed packages. It ensures that every developer or environment installs exactly the same package versions for preventing inconsistencies.
+
+![alt text](./assets/images/Folder-and-file-conventions/package-lock-josn.png)
+
+- .env.local: Environment variables that should not be tracked by version control. Used for sensitive data like API keys, database credentials etc.
+  - With NEXT_PUBLIC_ prefix Variables can be accessed in client components.
+  - Without NEXT_PUBLIC_ prefix Variables  only accessible on the server side, not exposed to the client.
+
+![alt text](./assets/images/Folder-and-file-conventions/env-local.png)
+
+- next-env.d.ts: TypeScript declaration file for Next.js (should not be tracked by version control)
+
+![alt text](./assets/images/Folder-and-file-conventions/next-env-d-ts.png)
+
+- eslint.config.mjs:	Configuration file for ESLint
+  - ESLint is a static code analysis tool for JavaScript and TypeScript that helps you find and fix problems in your code. It enforces coding standards, catches bugs, and improves code quality by analyzing your code against a set of rules when you type code.
+
+![alt text](./assets/images/Folder-and-file-conventions/eslint-config-mjs.png)
+
+- .gitignore: Specifies files and directories (folders) that should be ignored by Git.
+
+![alt text](./assets/images/Folder-and-file-conventions/git-ignore.png)
+
+- tsconfig.json: Configuration file for TypeScript. It tells the TypeScript compiler (tsc) how to compile your TypeScript code into JavaScript.
+
+![alt text](./assets/images/Folder-and-file-conventions/tsconfig-json.png)
