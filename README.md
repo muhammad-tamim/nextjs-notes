@@ -19,8 +19,6 @@
         - [Problems with SSG:](#problems-with-ssg)
         - [When to use SSG:](#when-to-use-ssg)
       - [4. Incremental Static Regeneration(ISR):](#4-incremental-static-regenerationisr)
-        - [Problems with ISR:](#problems-with-isr)
-        - [When to use ISR:](#when-to-use-isr)
     - [Difference Between CSR, SSR, SSG, ISR:](#difference-between-csr-ssr-ssg-isr)
     - [Difference Between Library and Framework:](#difference-between-library-and-framework)
     - [Difference Between React and Next.js:](#difference-between-react-and-nextjs)
@@ -174,16 +172,26 @@ CSR is the default rendering method for React. Since Next.js components are serv
 Server-Side Rendering means that React components are rendered on the server for each request, and the browser receives fully rendered HTML instead of a blank page.Next.js optimizes SSR by caching rendered pages, so for subsequent requests, it can serve cached HTML without re-rendering on the server.
 
 ##### LifeCycle of SSR:
-- Browser sends a request to the server
-- Server executes React components and fetches required data
-- Server generates fully rendered HTML
-- Server returns rendered HTML along with CSS files and JavaScript bundle
-- Browser parses HTML immediately → full content is visible (already rendered)
-- CSS downloads → styles are applied
-- JavaScript downloads and executes
-- React hydrates the existing HTML → page becomes fully interactive
+- Browser sends request to server
+- Server executes Server Components and fetches data
+- Server generates:
+  - HTML (for immediate paint)
+  - RSC payload (serialized React component instructions)
+- Server returns:
+  - HTML (which includes references to CSS & JS assets) 
+  - RSC payload
+- Browser parses HTML → content visible immediately
+- Browser downloads CSS and JS files referenced in `<link>` and `<script>` tags
+- CSS is applied
+- JavaScript executes
+- React by the help of RSC payload:
+  - Reconstructs component tree 
+  - Hydrates Client Components and Page becomes fully interactive
 
-**Note**: Hydration means React takes the HTML that was rendered on the server (or pre-built) and “activates” it in the browser by attaching event listeners, connecting it to React’s virtual DOM, and making it fully interactive.
+
+**Note:**: Hydration means React takes the server-rendered HTML and Attaches event listeners, Connects it to the React Virtual DOM and finally Makes Client Components interactive. 
+
+**Note:** Server Components never hydrate. 
 
 ![alt text](./assets/images/introduction/ssr-1.png)
 ![alt text](./assets/images/introduction/ssr-2.png)
@@ -199,20 +207,28 @@ Server-Side Rendering means that React components are rendered on the server for
 
 
 #### 3. Static Site Generation(SSG): 
-Static Site Generation (SSG) means that React components are rendered to HTML at build time, instead of on each request. The server generates the HTML once during the build, and the same pre-rendered HTML is served to all requests.
+Static Site Generation (SSG) means the React components are pre-rendered at build time, not per request. The server generates the HTML once during the build, and the same pre-rendered HTML is served for all requests
 
-In Next.js, we need to use getStaticProps() to fetch data at build time and can getStaticPaths() for dynamic routes that need pre-rendering.
+In Next.js, we need to use getStaticProps() to fetch data at build time and can getStaticPaths() for dynamic routes that need pre-rendering.This approach is ideal for pages with data that doesn’t change often (blogs, marketing pages, docs, etc.).
+
 
 ##### LifeCycle of SSG: 
-- During build time, the server executes React components
-- Required data is fetched at build time
-- Static HTML files are generated and stored
-- Browser sends a request to the server/CDN
-- Server/CDN returns pre-generated HTML along with CSS files and JavaScript bundle
-- Browser parses HTML immediately → full content is visible
-- CSS downloads → styles are applied
-- JavaScript downloads and executes
-- React hydrates the static HTML → page becomes interactive page contains client-side components, React hydrates them after the JavaScript is downloaded and executed.
+1. Build Time: 
+   - Server executes React components
+   - Required data is fetched from APIs or databases
+   - HTML + RSC payload is generated for each page and stored in build output (static files)
+2. Request Time: 
+   - Browser sends request to server or CDN
+   - Server returns:
+     - cached pre pre-rendered HTML (which includes references to CSS & JS) and RSC payload
+   - Browser parses HTML → content visible immediately
+   - Browser downloads CSS and JS files referenced in `<link>` and `<script>` tags
+   - CSS is applied
+   - JavaScript executes
+   - React by the help of RSC payload:
+     - Reconstructs component tree 
+     - Hydrates Client Components and Page becomes fully interactive
+
 
 ##### Problems with SSG: 
 - Content can become outdated.
@@ -228,19 +244,6 @@ In Next.js, we need to use getStaticProps() to fetch data at build time and can 
 ISR allows you to update SSG pages after deployment without rebuilding the entire application. ISR is same as SSG but here you can specify a revalidation time for each page, and Next.js will automatically regenerate the page in the background when a request comes in after the revalidation time has passed.
 
 Incremental Static Regeneration (ISR) is a feature in Next.js that combines the speed of SSG with the flexibility of SSR. With ISR, we can specify a revalidation time for each page, and Next.js will automatically regenerate the page in the background when a request comes in after the revalidation time has passed.
-
-##### Problems with ISR:
-
-##### When to use ISR: 
-- During build time, the server generates static HTML (like SSG)
-- Browser sends a request to the server/CDN
-- Server/CDN returns static HTML along with CSS files and JavaScript bundle
-- Browser parses HTML immediately → full content is visible
-- CSS downloads → styles are applied
-- JavaScript downloads and executes
-- React hydrates the HTML → page becomes interactive
-- After the revalidation time, the server regenerates the page in the background
-- The next request receives the updated static HTML
 
 ### Difference Between CSR, SSR, SSG, ISR: 
 
@@ -749,3 +752,4 @@ export default async function Post({ post }) {
   )
 }
 ```
+
