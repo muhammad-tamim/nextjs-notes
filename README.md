@@ -77,6 +77,23 @@
       - [3. Slow networks:](#3-slow-networks)
       - [4. Disabling prefetching:](#4-disabling-prefetching)
       - [5. Hydration not completed:](#5-hydration-not-completed)
+- [Cache Components:](#cache-components)
+  - [How rendering works with Cache Components:](#how-rendering-works-with-cache-components)
+  - [Automatically pre-rendered content:](#automatically-pre-rendered-content)
+  - [Defer rendering to request time:](#defer-rendering-to-request-time)
+    - [Types of Dynamic Work](#types-of-dynamic-work)
+      - [External / Async Content:](#external--async-content)
+    - [Runtime Data (Request-Based Data):](#runtime-data-request-based-data)
+    - [Non-Deterministic Operations:](#non-deterministic-operations)
+  - [Using use cache:](#using-use-cache)
+    - [Caching During pre-rendering:](#caching-during-pre-rendering)
+    - [Caching With runtime data:](#caching-with-runtime-data)
+    - [Casing With non-deterministic operations:](#casing-with-non-deterministic-operations)
+    - [Tagging and revalidating:](#tagging-and-revalidating)
+      - [updateTag:](#updatetag)
+      - [revalidateTag:](#revalidatetag)
+    - [When To Use Caching:](#when-to-use-caching)
+    - [Example:](#example)
 
 # Setup: 
 
@@ -1435,3 +1452,492 @@ function HoverPrefetchLink({
 #### 5. Hydration not completed: 
 
 `<Link>` is a Client Component and must be hydrated before it can prefetch routes. On the initial visit, large JavaScript bundles can delay hydration, preventing prefetching from starting right away.
+
+# Cache Components: 
+A Cache Component is a Server Component whose result is cached by Next.js so it doesn’t re-render on every request.
+
+Instead of recomputing every time, Next.js stores the rendered result and reuses it.
+
+## How rendering works with Cache Components: 
+
+Let’s say you have this:
+
+```ts
+export default async function ProductsPage() {
+  const products = await getProducts()
+  return <ProductsList products={products} />
+}
+```
+
+Note: By default fetch() is cached automatically, but you can stop caching by using "no-store"
+
+First Request: 
+- User requests /products
+- Server runs the component
+- getProducts() fetches data
+- HTML + RSC payload is generated
+- Next.js stores the result in cache
+
+Second Request:
+- Another user requests /products
+- Next.js checks cache
+- Cached result exists
+- It returns cached output
+- No re-render, no refetch
+- This makes it fast.
+
+Comparison:
+
+| Type                    | Behavior                    |
+| ----------------------- | --------------------------- |
+| Normal Server Component | May re-render every request |
+| Cached Component        | Render once, reuse result   |
+| Dynamic Component       | Always re-render            |
+
+
+## Automatically pre-rendered content: 
+If your component only does things that can finish at build time, Next.js will include its output directly in the static HTML.
+
+That means:
+- No server work on each request
+- No runtime rendering
+- Just ready-made HTML
+
+What counts as can finish at build time: 
+Things like:
+- Reading local files (fs.readFileSync)
+- Importing JSON or modules
+- Pure calculations (map, filter, JSON.parse, etc.)
+- Anything that doesn’t depend on user request data
+
+```tsx
+import fs from 'node:fs'
+ 
+export default async function Page() {
+  // Synchronous file system read
+  const content = fs.readFileSync('./config.json', 'utf-8')
+ 
+  // Module imports
+  const constants = await import('./constants.json')
+ 
+  // Pure computations
+  const processed = JSON.parse(content).items.map((item) => item.value * 2)
+ 
+  return (
+    <div>
+      <h1>{constants.appName}</h1>
+      <ul>
+        {processed.map((value, i) => (
+          <li key={i}>{value}</li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+```
+
+## Defer rendering to request time: 
+Sometimes Next.js cannot finish rendering during build time. This happens when your component uses:
+- Network requests (fetch to external API)
+- Database queries
+- Async file operations
+- Request data (cookies, headers)
+- Non-deterministic values (Math.random(), Date.now())
+
+here, Rendering must wait until a real user request happens. This is called deferring to request time.
+
+When something cannot be pre-rendered, you must wrap it in:
+
+```tsx
+<Suspense fallback={<LoadingUI />}>
+  <DynamicComponent />
+</Suspense>
+```
+
+Note: Put `<Suspense>` as close as possible to the dynamic component. Because everything outside Suspense can still be static.
+
+```tsx
+// bad
+<Suspense>
+  <EntirePage />
+</Suspense>
+```
+
+```tsx
+// better
+<h1>Static Title</h1>
+<Suspense>
+  <OnlyDynamicPart />
+</Suspense>
+```
+This keeps most of your page static and fast.
+
+### Types of Dynamic Work
+
+#### External / Async Content:
+fetch(), Database query, Async file read, Slow external systems etc these cannot run at build time. So they must be inside `<Suspense>`.
+
+```tsx
+import { Suspense } from 'react'
+import fs from 'node:fs/promises'
+ 
+async function DynamicContent() {
+  // Network request
+  const data = await fetch('https://api.example.com/data')
+ 
+  // Database query
+  const users = await db.query('SELECT * FROM users')
+ 
+  // Async file system operation
+  const file = await fs.readFile('..', 'utf-8')
+ 
+  // Simulating external system delay
+  await new Promise((resolve) => setTimeout(resolve, 100))
+ 
+  return <div>Not in the static shell</div>
+}
+```
+
+```tsx
+export default async function Page(props) {
+  return (
+    <>
+      <h1>Part of the static shell</h1>
+      {/* <p>Loading..</p> is part of the static shell */}
+      <Suspense fallback={<p>Loading..</p>}>
+        <DynamicContent />
+        <div>Sibling excluded from static shell</div>
+      </Suspense>
+    </>
+  )
+}
+```
+
+### Runtime Data (Request-Based Data): 
+cookies(), headers(), searchParams, params (dynamic routes) etc These only exist when a user makes a request. Since build time has no request, these must run at request time. So wrap them in `<Suspense>`.
+
+```tsx
+import { cookies, headers } from 'next/headers'
+import { Suspense } from 'react'
+ 
+async function RuntimeData({ searchParams }) {
+  // Accessing request data
+  const cookieStore = await cookies()
+  const headerStore = await headers()
+  const search = await searchParams
+ 
+  return <div>Not in the static shell</div>
+}
+```
+
+```tsx
+export default async function Page(props) {
+  return (
+    <>
+      <h1>Part of the static shell</h1>
+      {/* <p>Loading..</p> is part of the static shell */}
+      <Suspense fallback={<p>Loading..</p>}>
+        <RuntimeData searchParams={props.searchParams} />
+        <div>Sibling excluded from static shell</div>
+      </Suspense>
+    </>
+  )
+}
+```
+
+### Non-Deterministic Operations: 
+Operations like Math.random(), Date.now(), or crypto.randomUUID() produce different values each time they execute. If you want them to run per request, You must explicitly defer rendering to request time (e.g., using await connection()).
+
+```tsx
+import { connection } from 'next/server'
+import { Suspense } from 'react'
+ 
+async function UniqueContent() {
+  // Explicitly defer to request time
+  await connection()
+ 
+  // Non-deterministic operations
+  const random = Math.random()
+  const now = Date.now()
+  const date = new Date()
+  const uuid = crypto.randomUUID()
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+ 
+  return (
+    <div>
+      <p>{random}</p>
+      <p>{now}</p>
+      <p>{date.getTime()}</p>
+      <p>{uuid}</p>
+      <p>{bytes}</p>
+    </div>
+  )
+}
+```
+
+```tsx
+export default async function Page() {
+  return (
+    // <p>Loading..</p> is part of the static shell
+    <Suspense fallback={<p>Loading..</p>}>
+      <UniqueContent />
+    </Suspense>
+  )
+}
+```
+
+Summary: Very Simple Mental Model
+
+If your component Needs real-time data, Needs user request data, Or generates unique values then It cannot be static. Wrap it in `<Suspense>` with fallback UI.
+
+## Using use cache: 
+The use cache directive caches the return value of async functions and components. You can apply it at the function, component, or file level.
+ 
+Arguments and any closed-over values from parent scopes automatically become part of the cache key, which means different inputs produce separate cache entries. This enables personalized or parameterized cached content.
+
+When dynamic content doesn't need to be fetched fresh from the source on every request, caching it lets you include the content in the static shell during pre-rendering, or reuse the result at runtime across multiple requests.
+
+Cached content can be revalidated in two ways: automatically based on the cache lifetime, or on-demand using tags with revalidateTag or updateTag.
+
+### Caching During pre-rendering: 
+While dynamic content is fetched from external sources, it's often unlikely to change between accesses. Product catalog data updates with inventory changes, blog post content rarely changes after publishing, and analytics reports for past dates remain static.
+
+If this data doesn't depend on runtime data, you can use the use cache directive to include it in the static HTML shell. Use cacheLife to define how long to use the cached data.
+
+When revalidation occurs, the static shell is updated with fresh content.
+
+```tsx
+import { cacheLife } from 'next/cache'
+ 
+export default async function Page() {
+  'use cache'
+  cacheLife('hours')
+ 
+  const users = await db.query('SELECT * FROM users')
+ 
+  return (
+    <ul>
+      {users.map((user) => (
+        <li key={user.id}>{user.name}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+The cacheLife function accepts a cache profile name (like 'hours', 'days', or 'weeks') or a custom configuration object to control cache behavior:
+
+```tsx
+import { cacheLife } from 'next/cache'
+ 
+export default async function Page() {
+  'use cache'
+  cacheLife({
+    stale: 3600, // 1 hour until considered stale
+    revalidate: 7200, // 2 hours until revalidated
+    expire: 86400, // 1 day until expired
+  })
+ 
+  const users = await db.query('SELECT * FROM users')
+ 
+  return (
+    <ul>
+      {users.map((user) => (
+        <li key={user.id}>{user.name}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+### Caching With runtime data: 
+Runtime data and use cache cannot be used in the same scope. However, you can extract values from runtime APIs and pass them as arguments to cached functions.
+
+```tsx
+import { cookies } from 'next/headers'
+import { Suspense } from 'react'
+ 
+export default function Page() {
+  // Page itself creates the dynamic boundary
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ProfileContent />
+    </Suspense>
+  )
+}
+ 
+// Component (not cached) reads runtime data
+async function ProfileContent() {
+  const session = (await cookies()).get('session')?.value
+ 
+  return <CachedContent sessionId={session} />
+}
+ 
+// Cached component/function receives data as props
+async function CachedContent({ sessionId }: { sessionId: string }) {
+  'use cache'
+  // sessionId becomes part of cache key
+  const data = await fetchUserData(sessionId)
+  return <div>{data}</div>
+}
+```
+
+At request time, CachedContent executes if no matching cache entry is found, and stores the result for future requests.
+
+### Casing With non-deterministic operations: 
+Within a use cache scope, non-deterministic operations execute during prerendering. This is useful when you want the same rendered output served to all users:
+
+```tsx
+export default async function Page() {
+  'use cache'
+ 
+  // Execute once, then cached for all requests
+  const random = Math.random()
+  const random2 = Math.random()
+  const now = Date.now()
+  const date = new Date()
+  const uuid = crypto.randomUUID()
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+ 
+  return (
+    <div>
+      <p>
+        {random} and {random2}
+      </p>
+      <p>{now}</p>
+      <p>{date.getTime()}</p>
+      <p>{uuid}</p>
+      <p>{bytes}</p>
+    </div>
+  )
+}
+```
+
+All requests will be served a route containing the same random numbers, timestamp, and UUID until the cache is revalidated.
+
+### Tagging and revalidating: 
+Tag cached data with cacheTag and revalidate it after mutations using updateTag in Server Actions for immediate updates, or revalidateTag when delays in updates are acceptable.
+
+#### updateTag: 
+Use updateTag when you need to expire and immediately refresh cached data within the same request:
+
+```tsx
+import { cacheTag, updateTag } from 'next/cache'
+ 
+export async function getCart() {
+  'use cache'
+  cacheTag('cart')
+  // fetch data
+}
+ 
+export async function updateCart(itemId: string) {
+  'use server'
+  // write data using the itemId
+  // update the user cart
+  updateTag('cart')
+}
+```
+
+#### revalidateTag: 
+Use revalidateTag when you want to invalidate only properly tagged cached entries with stale-while-revalidate behavior. This is ideal for static content that can tolerate eventual consistency.
+
+```tsx
+import { cacheTag, revalidateTag } from 'next/cache'
+ 
+export async function getPosts() {
+  'use cache'
+  cacheTag('posts')
+  // fetch data
+}
+ 
+export async function createPost(post: FormData) {
+  'use server'
+  // write data using the FormData
+  revalidateTag('posts', 'max')
+}
+```
+
+### When To Use Caching: 
+
+- Use 'use cache' when:
+  - Data changes occasionally
+  - Not per-user request dependent
+  - You want performance like SSG, But still control revalidation
+
+- Do NOT use it when:
+  - You need fresh data every request
+  - You depend on request context directly
+
+### Example: 
+Here's a complete example showing static content, cached dynamic content, and streaming dynamic content working together on a single page:
+
+```tsx
+import { Suspense } from 'react'
+import { cookies } from 'next/headers'
+import { cacheLife } from 'next/cache'
+import Link from 'next/link'
+ 
+export default function BlogPage() {
+  return (
+    <>
+      {/* Static content - prerendered automatically */}
+      <header>
+        <h1>Our Blog</h1>
+        <nav>
+          <Link href="/">Home</Link> | <Link href="/about">About</Link>
+        </nav>
+      </header>
+ 
+      {/* Cached dynamic content - included in the static shell */}
+      <BlogPosts />
+ 
+      {/* Runtime dynamic content - streams at request time */}
+      <Suspense fallback={<p>Loading your preferences...</p>}>
+        <UserPreferences />
+      </Suspense>
+    </>
+  )
+}
+ 
+// Everyone sees the same blog posts (revalidated every hour)
+async function BlogPosts() {
+  'use cache'
+  cacheLife('hours')
+ 
+  const res = await fetch('https://api.vercel.app/blog')
+  const posts = await res.json()
+ 
+  return (
+    <section>
+      <h2>Latest Posts</h2>
+      <ul>
+        {posts.slice(0, 5).map((post: any) => (
+          <li key={post.id}>
+            <h3>{post.title}</h3>
+            <p>
+              By {post.author} on {post.date}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+ 
+// Personalized per user based on their cookie
+async function UserPreferences() {
+  const theme = (await cookies()).get('theme')?.value || 'light'
+  const favoriteCategory = (await cookies()).get('category')?.value
+ 
+  return (
+    <aside>
+      <p>Your theme: {theme}</p>
+      {favoriteCategory && <p>Favorite category: {favoriteCategory}</p>}
+    </aside>
+  )
+}
+```
+
+During prerendering the header (static) and the blog posts fetched from the API (cached with use cache), both become part of the static shell along with the fallback UI for user preferences.
+
+When a user visits the page, they instantly see this prerendered shell with the header and blog posts. Only the personalized preferences need to stream in at request time since they depend on the user's cookies. This ensures fast initial page loads while still providing personalized content.
