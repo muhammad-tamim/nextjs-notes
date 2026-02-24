@@ -4,24 +4,34 @@
 - [Introduction:](#introduction)
     - [What is Next.js:](#what-is-nextjs)
     - [Key Features of Next.js:](#key-features-of-nextjs)
-    - [Components in Next.js:](#components-in-nextjs)
-    - [Next.js Renderings:](#nextjs-renderings)
-      - [1. Client Side Rendering(CSR):](#1-client-side-renderingcsr)
-        - [LifeCycle of CSR:](#lifecycle-of-csr)
-        - [Problems with CSR:](#problems-with-csr)
-        - [When to use CSR:](#when-to-use-csr)
-      - [2. Server Side Rendering(SSR):](#2-server-side-renderingssr)
-        - [LifeCycle of SSR:](#lifecycle-of-ssr)
-        - [Problems with SSR:](#problems-with-ssr)
-        - [When to use SSR:](#when-to-use-ssr)
-      - [3. Static Site Generation(SSG):](#3-static-site-generationssg)
-        - [LifeCycle of SSG:](#lifecycle-of-ssg)
-        - [Problems with SSG:](#problems-with-ssg)
-        - [When to use SSG:](#when-to-use-ssg)
-      - [4. Incremental Static Regeneration(ISR):](#4-incremental-static-regenerationisr)
-    - [Difference Between CSR, SSR, SSG, ISR:](#difference-between-csr-ssr-ssg-isr)
     - [Difference Between Library and Framework:](#difference-between-library-and-framework)
     - [Difference Between React and Next.js:](#difference-between-react-and-nextjs)
+- [Components in Next.js:](#components-in-nextjs)
+  - [When to use Server and Client Components:](#when-to-use-server-and-client-components)
+  - [Examples:](#examples)
+    - [Using Client Components:](#using-client-components)
+    - [Reducing JS bundle size:](#reducing-js-bundle-size)
+    - [Passing data from Server to Client Components:](#passing-data-from-server-to-client-components)
+    - [Interleaving Server and Client Components:](#interleaving-server-and-client-components)
+    - [Context providers:](#context-providers)
+    - [Sharing data with context and React.cache:](#sharing-data-with-context-and-reactcache)
+    - [Third-party components:](#third-party-components)
+    - [Preventing environment poisoning:](#preventing-environment-poisoning)
+- [Next.js Renderings:](#nextjs-renderings)
+  - [1. Client Side Rendering(CSR):](#1-client-side-renderingcsr)
+    - [LifeCycle of CSR:](#lifecycle-of-csr)
+    - [Problems with CSR:](#problems-with-csr)
+    - [When to use CSR:](#when-to-use-csr)
+  - [2. Server Side Rendering(SSR):](#2-server-side-renderingssr)
+    - [LifeCycle of SSR:](#lifecycle-of-ssr)
+    - [Problems with SSR:](#problems-with-ssr)
+    - [When to use SSR:](#when-to-use-ssr)
+  - [3. Static Site Generation(SSG):](#3-static-site-generationssg)
+    - [LifeCycle of SSG:](#lifecycle-of-ssg)
+    - [Problems with SSG:](#problems-with-ssg)
+    - [When to use SSG:](#when-to-use-ssg)
+  - [4. Incremental Static Regeneration(ISR):](#4-incremental-static-regenerationisr)
+  - [Difference Between CSR, SSR, SSG, ISR:](#difference-between-csr-ssr-ssg-isr)
 - [Folder and File Conventions:](#folder-and-file-conventions)
   - [Top-level Folders:](#top-level-folders)
   - [Top-level Files:](#top-level-files)
@@ -133,7 +143,28 @@ Next.js is a React framework for building high-performance, SEO-optimized web ap
 - Built-in TS and Tailwind css support
 - Automatic Code Splitting: Only loads the JavaScript needed for each page, improving performance.
 
-### Components in Next.js: 
+
+### Difference Between Library and Framework: 
+
+| library                                                                                                                                                  | framework                                                                                                                             |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| A library is a collection of pre-written code that you can pick and use whenever you need. You decide when to call it and how to use it in your program. | A framework is a pre-defined structure that you must follow to build your application. It decides when your code runs and how to use. |
+| you cal the library, means you decide when and how to use it.                                                                                            | the framework cal you, means it decide when and how to use it.                                                                        |
+| more flexible, you can combine with others tolls                                                                                                         | less flexible, you must follow its rules and conventions                                                                              |
+| focus on specific task                                                                                                                                   | provides a full solution for building entire apps                                                                                     |
+
+### Difference Between React and Next.js: 
+
+| Feature                  | **React**                                 | **Next.js**                                   |
+| ------------------------ | ----------------------------------------- | --------------------------------------------- |
+| **Type**                 | JavaScript library for building UI        | React Framework for building full-stack apps  |
+| **Rendering**            | Only client-side by default (CSR)         | Supports CSR, SSR, SSG, and ISR               |
+| **Routing**              | Manual with libraries like `react-router` | File-based routing built-in                   |
+| **Server-side features** | Needs additional setup                    | Built-in API routes and server-side rendering |
+| **SEO**                  | Poor by default (CSR)                     | Built-in SEO Optimization                     |
+
+
+# Components in Next.js: 
 In Next.js, there are two types of components: 
 
 - Server Component: A React component that runs on the server. It has different types of rendering methods like SSR, SSG, ISR. 
@@ -142,18 +173,486 @@ In Next.js, there are two types of components:
 
 Note: In Next.js, components are server components by default. To make a component a client component, you need to add the "use client" directive at the top of the component file.
 
+## When to use Server and Client Components: 
+The client and server environments have different capabilities. Server and Client components allow you to run logic in each environment depending on your use case.
 
-### Next.js Renderings:
+Use Client Components when you need:
+- State and event handlers. E.g. onClick, onChange.
+- Lifecycle logic. E.g. useEffect.
+- Browser-only APIs. E.g. localStorage, window, Navigator.geolocation, etc.
+- Custom hooks.
+
+Use Server Components when you need:
+- Fetch data from databases or APIs close to the source.
+- Use API keys, tokens, and other secrets without exposing them to the client.
+- Reduce the amount of JavaScript sent to the browser.
+- Improve the First Contentful Paint (FCP), and stream content progressively to the client.
+
+For example, the `<Page>` component is a Server Component that fetches data about a post, and passes it as props to the `<LikeButton>` which handles client-side interactivity.
+
+app/[id]/page.tsx:
+
+```tsx
+import LikeButton from '@/app/ui/like-button'
+import { getPost } from '@/lib/data'
+ 
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const post = await getPost(id)
+ 
+  return (
+    <div>
+      <main>
+        <h1>{post.title}</h1>
+        {/* ... */}
+        <LikeButton likes={post.likes} />
+      </main>
+    </div>
+  )
+}
+```
+app/ui/like-button.tsx
+```tsx
+'use client'
+ 
+import { useState } from 'react'
+ 
+export default function LikeButton({ likes }: { likes: number }) {
+  // ...
+}
+```
+
+## Examples: 
+
+### Using Client Components: 
+
+we can create a Client Component by adding the "use client" directive at the top of the file, above your imports.
+
+```tsx
+'use client'
+ 
+import { useState } from 'react'
+ 
+export default function Counter() {
+  const [count, setCount] = useState(0)
+ 
+  return (
+    <div>
+      <p>{count} likes</p>
+      <button onClick={() => setCount(count + 1)}>Click me</button>
+    </div>
+  )
+}
+```
+
+"use client" is used to declare a boundary between the Server and Client module graphs (trees).
+
+Once a file is marked with "use client", all its imports and child components are considered part of the client bundle. This means you don't need to add the directive to every component that is intended for the client.
+
+### Reducing JS bundle size: 
+
+To reduce the size of your client JavaScript bundles, add 'use client' to specific interactive components instead of marking large parts of your UI as Client Components.
+
+For example, the `<Layout>` component contains mostly static elements like a logo and navigation links, but includes an interactive search bar. `<Search />` is interactive and needs to be a Client Component, however, the rest of the layout can remain a Server Component.
+
+```tsx
+// Client Component
+import Search from './search'
+// Server Component
+import Logo from './logo'
+ 
+// Layout is a Server Component by default
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <nav>
+        <Logo />
+        <Search />
+      </nav>
+      <main>{children}</main>
+    </>
+  )
+}
+```
+
+```tsx
+'use client'
+ 
+export default function Search() {
+  // ...
+}
+```
+
+### Passing data from Server to Client Components: 
+
+You can pass data from Server Components to Client Components using props.
+
+```tsx
+import LikeButton from '@/app/ui/like-button'
+import { getPost } from '@/lib/data'
+ 
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const post = await getPost(id)
+ 
+  return <LikeButton likes={post.likes} />
+}
+```
+
+```tsx
+'use client'
+ 
+export default function LikeButton({ likes }: { likes: number }) {
+  // ...
+}
+```
+
+Alternatively, you can stream data from a Server Component to a Client Component with the use API.
+
+```tsx
+import Posts from '@/app/ui/posts'
+import { Suspense } from 'react'
+ 
+export default function Page() {
+  // Don't await the data fetching function
+  const posts = getPosts()
+ 
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <Posts posts={posts} />
+    </Suspense>
+  )
+}
+```
+
+Then, in your Client Component, use the use API to read the promise:
+
+```tsx
+'use client'
+import { use } from 'react'
+ 
+export default function Posts({
+  posts,
+}: {
+  posts: Promise<{ id: string; title: string }[]>
+}) {
+  const allPosts = use(posts)
+ 
+  return (
+    <ul>
+      {allPosts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+In the example above, the `<Posts>` component is wrapped in a `<Suspense>` boundary. This means the fallback will be shown while the promise is being resolved. 
+
+### Interleaving Server and Client Components: 
+You can pass Server Components as a prop to a Client Component. This allows you to visually nest server-rendered UI within Client components.
+
+A common pattern is to use children to create a slot in a `<ClientComponent>`. For example, a `<Cart>` component that fetches data on the server, inside a `<Modal>` component that uses client state to toggle visibility.
+
+```tsx
+'use client'
+ 
+export default function Modal({ children }: { children: React.ReactNode }) {
+  return <div>{children}</div>
+}
+```
+Then, in a parent Server Component (e.g.`<Page>`), you can pass a `<Cart>` as the child of the `<Modal>`:
+
+```tsx
+import Modal from './ui/modal'
+import Cart from './ui/cart'
+ 
+export default function Page() {
+  return (
+    <Modal>
+      <Cart />
+    </Modal>
+  )
+}
+```
+
+### Context providers: 
+React context is commonly used to share global state like the current theme. However, React context is not supported in Server Components.
+
+To use context, create a Client Component that accepts children:
+
+```tsx
+'use client'
+ 
+import { createContext } from 'react'
+ 
+export const ThemeContext = createContext({})
+ 
+export default function ThemeProvider({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return <ThemeContext.Provider value="dark">{children}</ThemeContext.Provider>
+}
+```
+
+Then, import it into a Server Component (e.g. layout):
+
+```tsx
+import ThemeProvider from './theme-provider'
+ 
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html>
+      <body>
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
+    </html>
+  )
+}
+```
+our Server Component will now be able to directly render your provider, and all other Client Components throughout your app will be able to consume this context.
+
+### Sharing data with context and React.cache: 
+
+You can share fetched data across both Server and Client Components by combining React.cache with context providers.
+
+Create a cached function that fetches data:
+
+```tsx
+// app/lib/user.ts
+import { cache } from 'react'
+ 
+export const getUser = cache(async () => {
+  const res = await fetch('https://api.example.com/user')
+  return res.json()
+})
+```
+
+Create a context provider that stores the promise:
+
+```tsx
+// app/user-provider.tsx
+'use client'
+ 
+import { createContext } from 'react'
+ 
+type User = {
+  id: string
+  name: string
+}
+ 
+export const UserContext = createContext<Promise<User> | null>(null)
+ 
+export default function UserProvider({
+  children,
+  userPromise,
+}: {
+  children: React.ReactNode
+  userPromise: Promise<User>
+}) {
+  return <UserContext value={userPromise}>{children}</UserContext>
+}
+```
+
+In a layout, pass the promise to the provider without awaiting:
+
+```tsx
+import UserProvider from './user-provider'
+import { getUser } from './lib/user'
+ 
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const userPromise = getUser() // Don't await
+ 
+  return (
+    <html>
+      <body>
+        <UserProvider userPromise={userPromise}>{children}</UserProvider>
+      </body>
+    </html>
+  )
+}
+```
+
+client Components use use() to resolve the promise from context, wrapped in <Suspense> for fallback UI:
+
+```tsx
+// app/ui/profile.tsx
+'use client'
+ 
+import { use, useContext } from 'react'
+import { UserContext } from '../user-provider'
+ 
+export function Profile() {
+  const userPromise = useContext(UserContext)
+  if (!userPromise) {
+    throw new Error('useContext must be used within a UserProvider')
+  }
+  const user = use(userPromise)
+  return <p>Welcome, {user.name}</p>
+}
+```
+
+```tsx
+// app/page.tsx
+import { Suspense } from 'react'
+import { Profile } from './ui/profile'
+ 
+export default function Page() {
+  return (
+    <Suspense fallback={<div>Loading profile...</div>}>
+      <Profile />
+    </Suspense>
+  )
+}
+```
+
+Server Components can also call getUser() directly:
+
+```tsx
+// app/dashboard/page.tsx
+import { getUser } from '../lib/user'
+ 
+export default async function DashboardPage() {
+  const user = await getUser() // Cached - same request, no duplicate fetch
+  return <h1>Dashboard for {user.name}</h1>
+}
+```
+
+Since getUser is wrapped with React.cache, multiple calls within the same request return the same memoized result, whether called directly in Server Components or resolved via context in Client Components.
+
+### Third-party components: 
+When using a third-party component that relies on client-only features, you can wrap it in a Client Component to ensure it works as expected.
+
+For example, the `<Carousel />` can be imported from the acme-carousel package. This component uses useState, but it doesn't yet have the "use client" directive.
+
+If you use `<Carousel />` within a Client Component, it will work as expected:
+
+```tsx
+'use client'
+ 
+import { useState } from 'react'
+import { Carousel } from 'acme-carousel'
+ 
+export default function Gallery() {
+  const [isOpen, setIsOpen] = useState(false)
+ 
+  return (
+    <div>
+      <button onClick={() => setIsOpen(true)}>View pictures</button>
+      {/* Works, since Carousel is used within a Client Component */}
+      {isOpen && <Carousel />}
+    </div>
+  )
+}
+```
+
+
+However, if you try to use it directly within a Server Component, you'll see an error. This is because Next.js doesn't know `<Carousel />` is using client-only features.
+
+To fix this, you can wrap third-party components that rely on client-only features in your own Client Components:
+
+```tsx
+'use client'
+ 
+import { Carousel } from 'acme-carousel'
+ 
+export default Carousel
+```
+
+Now, you can use `<Carousel />` directly within a Server Component:
+
+```tsx
+import Carousel from './carousel'
+ 
+export default function Page() {
+  return (
+    <div>
+      <p>View pictures</p>
+      {/*  Works, since Carousel is a Client Component */}
+      <Carousel />
+    </div>
+  )
+}
+```
+
+### Preventing environment poisoning: 
+In Next.js, JavaScript modules can be shared between Server Components and Client Components.
+
+Because of this, it’s possible to accidentally import server-only logic into client-side code. This mistake is known as environment poisoning. It happens when sensitive server logic leaks into the client bundle.
+
+For example, this function uses process.env.API_KEY, which is a secret and must never be exposed to the browser.
+
+```tsx
+export async function getData() {
+  const res = await fetch('https://external-service.com/data', {
+    headers: {
+      authorization: process.env.API_KEY,
+    },
+  })
+ 
+  return res.json()
+}
+```
+
+so, in next.js by default handle it like this: 
+- Only environment variables prefixed with NEXT_PUBLIC_ are included in the client bundle.
+- Variables without this prefix are replaced with an empty string ("") in client builds.
+
+So if getData() is accidentally imported into a Client Component, the API_KEY will not be exposed. Instead, it becomes an empty string. This prevents direct secret leakage.
+
+But Even though secrets are stripped from the client bundle, environment poisoning is still dangerous. Because it cause: 
+- Architectural Violation: Server logic should never run in the browser.
+- Logic Exposure Risk: Even if secrets are removed, you might still expose internal API endpoints, Backend request structure, Sensitive business logic
+- Future Maintenance Risk: If someone later adds NEXT_PUBLIC_ by mistake
+
+To make a proper solution of that problem you can use a the built-in safeguard `server-only`: 
+
+```tsx
+import "server-only"
+
+export async function getData() {
+  const res = await fetch("https://external-service.com/data", {
+    headers: {
+      authorization: process.env.API_KEY,
+    },
+  })
+
+  return res.json()
+}
+```
+Now, if someone imports this module into a Client Component, the build will fail. This enforces correct server/client boundaries at compile time.
+
+
+# Next.js Renderings:
 Rendering in Next.js is the process of converting your React components into HTML, CSS, and JavaScript that the browser can display. Depending on how the component is configured, Rendering can happen in different ways in Next.js:, like: 
 - Client Side Rendering (CSR): done in the browser.
 - Server Side Rendering (SSR): done on the server for every request.
 - Static Site Generation (SSG): done once at build time.
 - Incremental Static Regeneration (ISR): done at build time and updated later automatically within a revalidation time.
 
-#### 1. Client Side Rendering(CSR): 
+## 1. Client Side Rendering(CSR): 
 CSR is the default rendering method for React. Since Next.js components are server component by default, we need the 'use client' directive to make a component client component so it can use client side rendering.
 
-##### LifeCycle of CSR: 
+### LifeCycle of CSR: 
 - Browser sends a request to the server
 - Server returns minimal HTML (div id="root") along with CSS files and JavaScript bundle
 - Browser parses HTML immediately → empty page (blank root div) is shown
@@ -169,20 +668,20 @@ CSR is the default rendering method for React. Since Next.js components are serv
 ![alt text](./assets/images/introduction/csr-3.png)
 
 
-##### Problems with CSR: 
+### Problems with CSR: 
 - SEO limitations: Search engines may see just a black div with id root, which can lead to poor search engine rankings.
 - Performance issues: Users see a black page for a few seconds until the JavaScript is fully downloaded and executed, This can negatively impact:
   - First Contentful Paint (FCP)
   - Time To Interactive (TTI)
 
-##### When to use CSR: 
+### When to use CSR: 
 - When SEO is not a concern
 - When you have a highly interactive application that relies heavily on user interactions.
 
-#### 2. Server Side Rendering(SSR): 
+## 2. Server Side Rendering(SSR): 
 Server-Side Rendering means that React components are rendered on the server for each request, and the browser receives fully rendered HTML instead of a blank page.Next.js optimizes SSR by caching rendered pages, so for subsequent requests, it can serve cached HTML without re-rendering on the server.
 
-##### LifeCycle of SSR:
+### LifeCycle of SSR:
 - Browser sends request to server
 - Server executes Server Components and fetches data
 - Server generates:
@@ -208,22 +707,22 @@ Server-Side Rendering means that React components are rendered on the server for
 ![alt text](./assets/images/introduction/ssr-2.png)
 ![alt text](./assets/images/introduction/ssr-3.png)
 
-##### Problems with SSR:
+### Problems with SSR:
 - Increased server load: The server must render pages per request (next.js handles it by caching)..
 - Still requires JavaScript to be fully interactive, so even the first contentful paint (FCP) is faster, the time to interactive (TTI) still be delayed until the JavaScript is fully executed (next.js handles it by RSC)
 
-##### When to use SSR: 
+### When to use SSR: 
 - When SEO is a concern
 - When you want to ensure faster first contentful paint (FCP).
 
 
-#### 3. Static Site Generation(SSG): 
+## 3. Static Site Generation(SSG): 
 Static Site Generation (SSG) means the React components are pre-rendered at build time, not per request. The server generates the HTML once during the build, and the same pre-rendered HTML is served for all requests
 
 In Next.js, we need to use getStaticProps() to fetch data at build time and can getStaticPaths() for dynamic routes that need pre-rendering.This approach is ideal for pages with data that doesn’t change often (blogs, marketing pages, docs, etc.).
 
 
-##### LifeCycle of SSG: 
+### LifeCycle of SSG: 
 1. Build Time: 
    - Server executes React components
    - Required data is fetched from APIs or databases
@@ -241,22 +740,22 @@ In Next.js, we need to use getStaticProps() to fetch data at build time and can 
      - Hydrates Client Components and Page becomes fully interactive
 
 
-##### Problems with SSG: 
+### Problems with SSG: 
 - Content can become outdated.
 - Requires rebuilding the app to update content (unless using ISR).
 - Not ideal for highly dynamic data.
 
-##### When to use SSG: 
+### When to use SSG: 
 - Blog posts
 - Marketing pages
 - Documentation sites
 
-#### 4. Incremental Static Regeneration(ISR): 
+## 4. Incremental Static Regeneration(ISR): 
 ISR allows you to update SSG pages after deployment without rebuilding the entire application. ISR is same as SSG but here you can specify a revalidation time for each page, and Next.js will automatically regenerate the page in the background when a request comes in after the revalidation time has passed.
 
 Incremental Static Regeneration (ISR) is a feature in Next.js that combines the speed of SSG with the flexibility of SSR. With ISR, we can specify a revalidation time for each page, and Next.js will automatically regenerate the page in the background when a request comes in after the revalidation time has passed.
 
-### Difference Between CSR, SSR, SSG, ISR: 
+## Difference Between CSR, SSR, SSG, ISR: 
 
 | Feature            | **CSR**                 | **SSR**                       | **SSG**                       | **ISR**                                                   |
 | ------------------ | ----------------------- | ----------------------------- | ----------------------------- | --------------------------------------------------------- |
@@ -276,24 +775,6 @@ Summary:
 - SSG → Server builds HTML at build time → React hydrates
 - ISR → Server builds HTML at build time + regenerates later → React hydrates
 
-### Difference Between Library and Framework: 
-
-| library                                                                                                                                                  | framework                                                                                                                             |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| A library is a collection of pre-written code that you can pick and use whenever you need. You decide when to call it and how to use it in your program. | A framework is a pre-defined structure that you must follow to build your application. It decides when your code runs and how to use. |
-| you cal the library, means you decide when and how to use it.                                                                                            | the framework cal you, means it decide when and how to use it.                                                                        |
-| more flexible, you can combine with others tolls                                                                                                         | less flexible, you must follow its rules and conventions                                                                              |
-| focus on specific task                                                                                                                                   | provides a full solution for building entire apps                                                                                     |
-
-### Difference Between React and Next.js: 
-
-| Feature                  | **React**                                 | **Next.js**                                   |
-| ------------------------ | ----------------------------------------- | --------------------------------------------- |
-| **Type**                 | JavaScript library for building UI        | React Framework for building full-stack apps  |
-| **Rendering**            | Only client-side by default (CSR)         | Supports CSR, SSR, SSG, and ISR               |
-| **Routing**              | Manual with libraries like `react-router` | File-based routing built-in                   |
-| **Server-side features** | Needs additional setup                    | Built-in API routes and server-side rendering |
-| **SEO**                  | Poor by default (CSR)                     | Built-in SEO Optimization                     |
 
 # Folder and File Conventions:
 
