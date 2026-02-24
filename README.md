@@ -150,6 +150,17 @@
   - [Static metadata:](#static-metadata)
   - [Generated metadata:](#generated-metadata)
     - [Memoizing data requests:](#memoizing-data-requests)
+- [Route Handlers:](#route-handlers)
+  - [Convention:](#convention)
+  - [Supported HTTP Methods:](#supported-http-methods)
+  - [Caching:](#caching)
+    - [With Cache Components:](#with-cache-components)
+      - [Static example:](#static-example)
+      - [Dynamic example:](#dynamic-example)
+      - [Runtime data example:](#runtime-data-example)
+    - [Cached example:](#cached-example)
+  - [Route Resolution:](#route-resolution)
+  - [Route Context Helper:](#route-context-helper)
 
 # Setup: 
 
@@ -3273,5 +3284,138 @@ export async function generateMetadata({
 export default async function Page({ params }: { params: { slug: string } }) {
   const post = await getPost(params.slug)
   return <div>{post.title}</div>
+}
+```
+
+# Route Handlers: 
+Route Handlers allow you to create custom request handlers for a given route using the Web Request and Response APIs.
+
+![image](./assets/images/route-handlers/route-special-file.avif)
+
+Note: Route Handlers are only available inside the app directory. They are the equivalent of API Routes inside the pages directory meaning you do not need to use API Routes and Route Handlers together.
+
+## Convention: 
+Route Handlers are defined in a route.js|ts file inside the app directory:
+
+```ts
+// app/api/route.ts
+export async function GET(request: Request) {}
+```
+
+Route Handlers can be nested anywhere inside the app directory, similar to page.js and layout.js. But there cannot be a route.js file at the same route segment level as page.js.
+
+## Supported HTTP Methods: 
+The following HTTP methods are supported: GET, POST, PUT, PATCH, DELETE, HEAD, and OPTIONS. If an unsupported method is called, Next.js will return a 405 Method Not Allowed response.
+
+## Caching: 
+Route Handlers are not cached by default. You can, however, opt into caching for GET methods. Other supported HTTP methods are not cached. To cache a GET method, use a route config option such as export const dynamic = 'force-static' in your Route Handler file.
+
+```tsx
+// app/items/route.ts
+export const dynamic = 'force-static'
+ 
+export async function GET() {
+  const res = await fetch('https://data.mongodb-api.com/...', {
+    headers: {
+      'Content-Type': 'application/json',
+      'API-Key': process.env.DATA_API_KEY,
+    },
+  })
+  const data = await res.json()
+ 
+  return Response.json({ data })
+}
+```
+
+### With Cache Components: 
+When Cache Components is enabled, GET Route Handlers follow the same model as normal UI routes in your application. They run at request time by default, can be prerendered when they don't access dynamic or runtime data, and you can use use cache to include dynamic data in the static response.
+
+#### Static example:
+Doesn't access dynamic or runtime data, so it will be prerendered at build time:
+
+```tsx
+// app/api/project-info/route.ts
+export async function GET() {
+  return Response.json({
+    projectName: 'Next.js',
+  })
+}
+```
+
+#### Dynamic example: 
+Accesses non-deterministic operations. During the build, prerendering stops when Math.random() is called, deferring to request-time rendering:
+
+```tsx
+// app/api/random-number/route.ts
+export async function GET() {
+  return Response.json({
+    randomNumber: Math.random(),
+  })
+}
+```
+
+#### Runtime data example: 
+Accesses request-specific data. Prerendering terminates when runtime APIs like headers() are called:
+
+```tsx
+// app/api/user-agent/route.ts
+import { headers } from 'next/headers'
+ 
+export async function GET() {
+  const headersList = await headers()
+  const userAgent = headersList.get('user-agent')
+ 
+  return Response.json({ userAgent })
+}
+```
+
+### Cached example: 
+accesses dynamic data (database query) but caches it with use cache, allowing it to be included in the prerendered response:
+
+```tsx
+// app/api/products/route.ts
+import { cacheLife } from 'next/cache'
+ 
+export async function GET() {
+  const products = await getProducts()
+  return Response.json(products)
+}
+ 
+async function getProducts() {
+  'use cache'
+  cacheLife('hours')
+ 
+  return await db.query('SELECT * FROM products')
+}
+```
+
+## Route Resolution:
+You can consider a route the lowest level routing primitive.
+- They do not participate in layouts or client-side navigations like page.
+- There cannot be a route.js file at the same route as page.js. 
+
+![alt text](./assets/images/route-handlers/route-resulation.png)
+
+Each route.js or page.js file takes over all HTTP verbs for that route.
+
+```ts
+export default function Page() {
+  return <h1>Hello, Next.js!</h1>
+}
+ 
+// Conflict
+// `app/route.ts`
+export async function POST(request: Request) {}
+```
+
+## Route Context Helper: 
+In TypeScript, you can type the context parameter for Route Handlers with the globally available RouteContext helper:
+
+```tsx
+import type { NextRequest } from 'next/server'
+ 
+export async function GET(_req: NextRequest, ctx: RouteContext<'/users/[id]'>) {
+  const { id } = await ctx.params
+  return Response.json({ id })
 }
 ```
