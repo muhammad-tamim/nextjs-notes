@@ -94,6 +94,21 @@
       - [revalidateTag:](#revalidatetag)
     - [When To Use Caching:](#when-to-use-caching)
     - [Example:](#example)
+- [Fetching Data:](#fetching-data)
+  - [1. Server Components:](#1-server-components)
+    - [With the fetch API:](#with-the-fetch-api)
+    - [With an ORM or database](#with-an-orm-or-database)
+  - [2. Client Components:](#2-client-components)
+    - [Streaming data with the use API:](#streaming-data-with-the-use-api)
+    - [Community libraries:](#community-libraries)
+      - [Tanstack Query:](#tanstack-query)
+  - [Streaming:](#streaming)
+    - [With loading.js:](#with-loadingjs)
+    - [With `<Suspense>`:](#with-suspense)
+  - [Examples:](#examples-1)
+    - [Sequential data fetching:](#sequential-data-fetching)
+    - [Parallel data fetching:](#parallel-data-fetching)
+    - [Preloading data:](#preloading-data)
 
 # Setup: 
 
@@ -1941,3 +1956,359 @@ async function UserPreferences() {
 During prerendering the header (static) and the blog posts fetched from the API (cached with use cache), both become part of the static shell along with the fallback UI for user preferences.
 
 When a user visits the page, they instantly see this prerendered shell with the header and blog posts. Only the personalized preferences need to stream in at request time since they depend on the user's cookies. This ensures fast initial page loads while still providing personalized content.
+
+# Fetching Data: 
+## 1. Server Components:
+You can fetch data in Server Components using any asynchronous I/O, such as:
+- The fetch API
+- An ORM or database
+- Reading from the filesystem using Node.js APIs like fs
+
+### With the fetch API: 
+To fetch data with the fetch API, turn your component into an asynchronous function, and await the fetch call. For example:
+
+```tsx
+export default async function Page() {
+  const data = await fetch('https://api.vercel.app/blog')
+  const posts = await data.json()
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+```
+Note: 
+- fetch responses are not cached by default. However, Next.js will pre-render the route and the output will be cached for improved performance. If you'd like to opt into dynamic rendering, use the { cache: 'no-store' }
+
+
+### With an ORM or database
+Since Server Components are rendered on the server, you can safely make database queries using an ORM or database client. Turn your component into an asynchronous function, and await the call:
+
+```tsx
+import { db, posts } from '@/lib/db'
+ 
+export default async function Page() {
+  const allPosts = await db.select().from(posts)
+  return (
+    <ul>
+      {allPosts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+## 2. Client Components:
+There are two ways to fetch data in Client Components, using:
+- React's use API
+- A community library like SWR or React Query (Tanstack Query)
+
+### Streaming data with the use API: 
+
+You can use React's use API to stream data from the server to client. Start by fetching data in your Server component, and pass the promise to your Client Component as prop:
+
+```tsx
+import Posts from '@/app/ui/posts'
+import { Suspense } from 'react'
+ 
+export default function Page() {
+  // Don't await the data fetching function
+  const posts = getPosts()
+ 
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <Posts posts={posts} />
+    </Suspense>
+  )
+}
+```
+Then, in your Client Component, use the use API to read the promise:
+
+```tsx
+'use client'
+import { use } from 'react'
+ 
+export default function Posts({
+  posts,
+}: {
+  posts: Promise<{ id: string; title: string }[]>
+}) {
+  const allPosts = use(posts)
+ 
+  return (
+    <ul>
+      {allPosts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+Note: Streaming is a way to send parts of a page to the browser as soon as they are ready, instead of waiting for the whole page to finish rendering. We can do string in next.js using suspense with fallback ui
+
+### Community libraries: 
+You can use a community library like SWR or React Query to fetch data in Client Components. These libraries have their own semantics for caching, streaming, and other features. 
+
+#### Tanstack Query: 
+
+```tsx
+'use client'
+import useQuery from '@tanstack/react-query'
+ 
+export default function BlogPage() {
+ 
+const { isPending, error, data } = useQuery({
+    queryKey: ['repoData'],
+    queryFn: () =>
+      fetch('https://api.github.com/repos/TanStack/query').then((res) =>
+        res.json(),
+      ),
+  })
+
+  if (isPending) return 'Loading...'
+  if (error) return 'An error has occurred: ' + error.message
+
+  return (
+    <ul>
+      {data.map((post: { id: string; title: string }) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+## Streaming: 
+Note: The content below assumes the cacheComponents config option is enabled in your application. The flag was introduced in Next.js 15 canary.
+
+```tsx
+// next.config.ts
+import type { NextConfig } from 'next'
+ 
+const nextConfig: NextConfig = {
+  cacheComponents: true,
+}
+ 
+export default nextConfig
+```
+
+When you fetch data in Server Components, the data is fetched and rendered on the server for each request. If you have any slow data requests, the whole route will be blocked from rendering until all the data is fetched.
+
+To improve the initial load time and user experience, you can use streaming to break up the page's HTML into smaller chunks and progressively send those chunks from the server to the client.
+
+![image](./assets/images/fetching-data/server-rendering-with-streaming.avif)
+
+There are two ways you can leverage streaming in your application:
+- Wrapping a page with a loading.js file
+- Wrapping a component with <Suspense>
+
+### With loading.js: 
+You can create a loading.js file in the same folder as your page to stream the entire page while the data is being fetched. For example, to stream app/blog/page.js, add the file inside the app/blog folder.
+
+![image](./assets/images/fetching-data/loading-file.avif)
+
+```tsx
+export default function Loading() {
+  // Define the Loading UI here
+  return <div>Loading...</div>
+}
+```
+
+On navigation, the user will immediately see the layout and a loading state while the page is being rendered. The new content will then be automatically swapped in once rendering is complete.
+
+![image](./assets/images/fetching-data/loading-ui.avif)
+
+Behind-the-scenes, loading.js will be nested inside layout.js, and will automatically wrap the page.js file and any children below in a `<Suspense>` boundary.
+
+![image](./assets/images/fetching-data/loading-overview.avif)
+
+This approach works well for route segments (layouts and pages), but for more granular streaming, you can use `<Suspense>`.
+
+### With `<Suspense>`:
+`<Suspense>` allows you to be more granular about what parts of the page to stream. For example, you can immediately show any page content that falls outside of the `<Suspense>` boundary, and stream in the list of blog posts inside the boundary.
+
+```tsx
+// app/blog/page.tsx
+import { Suspense } from 'react'
+import BlogList from '@/components/BlogList'
+import BlogListSkeleton from '@/components/BlogListSkeleton'
+ 
+export default function BlogPage() {
+  return (
+    <div>
+      {/* This content will be sent to the client immediately */}
+      <header>
+        <h1>Welcome to the Blog</h1>
+        <p>Read the latest posts below.</p>
+      </header>
+      <main>
+        {/* If there's any dynamic content inside this boundary, it will be streamed in */}
+        <Suspense fallback={<BlogListSkeleton />}>
+          <BlogList />
+        </Suspense>
+      </main>
+    </div>
+  )
+}
+```
+
+## Examples: 
+
+### Sequential data fetching: 
+Sequential data fetching happens when one request depends on data from another.
+
+For example, `<Playlists>` can only fetch data after `<Artist>` completes because it needs the artistID:
+
+```tsx
+// app/artist/[username]/page.tsx
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ username: string }>
+}) {
+  const { username } = await params
+  // Get artist information
+  const artist = await getArtist(username)
+ 
+  return (
+    <>
+      <h1>{artist.name}</h1>
+      {/* Show fallback UI while the Playlists component is loading */}
+      <Suspense fallback={<div>Loading...</div>}>
+        {/* Pass the artist ID to the Playlists component */}
+        <Playlists artistID={artist.id} />
+      </Suspense>
+    </>
+  )
+}
+ 
+async function Playlists({ artistID }: { artistID: string }) {
+  // Use the artist ID to fetch playlists
+  const playlists = await getArtistPlaylists(artistID)
+ 
+  return (
+    <ul>
+      {playlists.map((playlist) => (
+        <li key={playlist.id}>{playlist.name}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+In this example, `<Suspense>` allows the playlists to stream in after the artist data loads. However, the page still waits for the artist data before displaying anything. To prevent this, you can wrap the entire page component in a `<Suspense>` boundary (for example, using a loading.js file) to show a loading state immediately.
+
+Ensure your data source can resolve the first request quickly, as it blocks everything else. If you can't optimize the request further, consider caching the result if the data changes infrequently.
+
+### Parallel data fetching:
+Parallel data fetching happens when data requests in a route are eagerly initiated and start at the same time.
+
+By default, layouts and pages are rendered in parallel. So each segment starts fetching data as soon as possible.
+
+However, within any component, multiple async/await requests can still be sequential if placed after the other. For example, getAlbums will be blocked until getArtist is resolved:
+
+```tsx
+import { getArtist, getAlbums } from '@/app/lib/data'
+ 
+export default async function Page({ params }) {
+  // These requests will be sequential
+  const { username } = await params
+  const artist = await getArtist(username)
+  const albums = await getAlbums(username)
+  return <div>{artist.name}</div>
+}
+```
+
+Start multiple requests by calling fetch, then await them with Promise.all. Requests begin as soon as fetch is called.
+
+```tsx
+import Albums from './albums'
+ 
+async function getArtist(username: string) {
+  const res = await fetch(`https://api.example.com/artist/${username}`)
+  return res.json()
+}
+ 
+async function getAlbums(username: string) {
+  const res = await fetch(`https://api.example.com/artist/${username}/albums`)
+  return res.json()
+}
+ 
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ username: string }>
+}) {
+  const { username } = await params
+ 
+  // Initiate requests
+  const artistData = getArtist(username)
+  const albumsData = getAlbums(username)
+ 
+  const [artist, albums] = await Promise.all([artistData, albumsData])
+ 
+  return (
+    <>
+      <h1>{artist.name}</h1>
+      <Albums list={albums} />
+    </>
+  )
+}
+```
+
+Note: If one request fails when using Promise.all, the entire operation will fail. To handle this, you can use the Promise.allSettled method instead.
+
+### Preloading data: 
+You can preload data by creating a utility function that you eagerly call above blocking requests. `<Item>` conditionally renders based on the checkIsAvailable() function.
+
+You can call preload() before checkIsAvailable() to eagerly initiate <Item/> data dependencies. By the time `<Item/>` is rendered, its data has already been fetched.
+
+```tsx
+import { getItem, checkIsAvailable } from '@/lib/data'
+ 
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  // starting loading item data
+  preload(id)
+  // perform another asynchronous task
+  const isAvailable = await checkIsAvailable()
+ 
+  return isAvailable ? <Item id={id} /> : null
+}
+ 
+const preload = (id: string) => {
+  // void evaluates the given expression and returns undefined
+  // https://developer.mozilla.org/docs/Web/JavaScript/Reference/Operators/void
+  void getItem(id)
+}
+ 
+export async function Item({ id }: { id: string }) {
+  const result = await getItem(id)
+  // ...
+}
+```
+
+Additionally, you can use React's cache function and the server-only package to create a reusable utility function. This approach allows you to cache the data fetching function and ensure that it's only executed on the server.
+
+```tsx
+import { cache } from 'react'
+import 'server-only'
+import { getItem } from '@/lib/data'
+ 
+export const preload = (id: string) => {
+  void getItem(id)
+}
+ 
+export const getItem = cache(async (id: string) => {
+  // ...
+})
+```
