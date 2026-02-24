@@ -125,6 +125,12 @@
     - [Redirecting:](#redirecting)
     - [Cookies:](#cookies)
     - [useEffect:](#useeffect)
+- [Caching and Revalidating:](#caching-and-revalidating)
+  - [fetch:](#fetch)
+  - [cacheTag:](#cachetag)
+  - [revalidateTag:](#revalidatetag-1)
+  - [updateTag:](#updatetag-1)
+  - [revalidatePath:](#revalidatepath)
 
 # Setup: 
 
@@ -2604,4 +2610,116 @@ export default function ViewCount({ initialViews }: { initialViews: number }) {
   // You can use `isPending` to give users feedback
   return <p>Total Views: {views}</p>
 }
+```
+
+# Caching and Revalidating: 
+Caching is a technique for storing the result of data fetching and other computations so that future requests for the same data can be served faster, without doing the work again. While revalidation allows you to update cache entries without having to rebuild your entire application.
+
+Next.js provides a few APIs to handle caching and revalidation like fetch, cacheTag, revalidateTag, updateTag, revalidatePath etc.
+
+## fetch: 
+By default, fetch requests are not cached. You can cache individual requests by setting the cache option to 'force-cache'.
+
+```tsx
+export default async function Page() {
+  const data = await fetch('https://...', { cache: 'force-cache' })
+}
+```
+
+Note:  Although fetch requests are not cached by default, Next.js will pre-render routes that have fetch requests and cache the HTML. If you want to guarantee a route is dynamic, use the `connection` API.
+
+
+To revalidate the data returned by a fetch request, you can use the next.revalidate option.
+```tsx
+export default async function Page() {
+  const data = await fetch('https://...', { next: { revalidate: 3600 } })
+}
+```
+This will revalidate the data after a specified amount of seconds.
+
+You can also tag fetch requests to enable on-demand cache invalidation:
+
+```tsx
+export async function getUserById(id: string) {
+  const data = await fetch(`https://...`, {
+    next: {
+      tags: ['user'],
+    },
+  })
+}
+```
+
+## cacheTag: 
+cacheTag allows you to tag cached data in Cache Components so it can be revalidated on-demand. Previously, cache tagging was limited to fetch requests, and caching other work required the experimental unstable_cache API.
+
+With Cache Components, you can use the use cache directive to cache any computation, and cacheTag to tag it. This works with database queries, file system operations, and other server-side work.
+
+```tsx
+import { cacheTag } from 'next/cache'
+ 
+export async function getProducts() {
+  'use cache'
+  cacheTag('products')
+ 
+  const products = await db.query('SELECT * FROM products')
+  return products
+}
+```
+Once tagged, you can use revalidateTag or updateTag to invalidate the cache entry for products. 
+
+## revalidateTag: 
+revalidateTag is used to revalidate cache entries based on a tag and following an event. The function now supports two behaviors:
+- With profile="max": Uses stale-while-revalidate semantics, serving stale content while fetching fresh content in the background
+- Without the second argument: Legacy behavior that immediately expires the cache (deprecated)
+
+After tagging your cached data, using fetch with next.tags, or the cacheTag function, you may call revalidateTag in a Route Handler or Server Action:
+
+```tsx
+import { revalidateTag } from 'next/cache'
+ 
+export async function updateUser(id: string) {
+  // Mutate data
+  revalidateTag('user', 'max') // Recommended: Uses stale-while-revalidate
+}
+```
+You can reuse the same tag in multiple functions to revalidate them all at once.
+
+## updateTag: 
+updateTag is specifically designed for Server Actions to immediately expire cached data for read-your-own-writes scenarios. Unlike revalidateTag, it can only be used within Server Actions and immediately expires the cache entry.
+
+```tsx
+import { updateTag } from 'next/cache'
+import { redirect } from 'next/navigation'
+ 
+export async function createPost(formData: FormData) {
+  // Create post in database
+  const post = await db.post.create({
+    data: {
+      title: formData.get('title'),
+      content: formData.get('content'),
+    },
+  })
+ 
+  // Immediately expire cache so the new post is visible
+  updateTag('posts')
+  updateTag(`post-${post.id}`)
+ 
+  redirect(`/posts/${post.id}`)
+}
+```
+
+The key differences between revalidateTag and updateTag:
+
+- updateTag: Only in Server Actions, immediately expires cache, for read-your-own-writes
+- revalidateTag: In Server Actions and Route Handlers, supports stale-while-revalidate with profile="max"
+
+## revalidatePath: 
+revalidatePath is used to revalidate a route and following an event. To use it, call it in a Route Handler or Server Action:
+
+```tsx
+import { revalidatePath } from 'next/cache'
+ 
+export async function updateUser(id: string) {
+  // Mutate data
+  revalidatePath('/profile')
 ```
