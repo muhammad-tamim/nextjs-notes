@@ -145,6 +145,11 @@
 - [Font Optimization:](#font-optimization)
   - [Google Fonts:](#google-fonts)
   - [Local fonts:](#local-fonts)
+- [Metadata:](#metadata)
+  - [Default fields:](#default-fields)
+  - [Static metadata:](#static-metadata)
+  - [Generated metadata:](#generated-metadata)
+    - [Memoizing data requests:](#memoizing-data-requests)
 
 # Setup: 
 
@@ -3166,4 +3171,107 @@ const roboto = localFont({
     },
   ],
 })
+```
+
+# Metadata:
+The Metadata APIs can be used to define your application metadata for improved SEO and web shareability and include:
+- The static metadata object
+- The dynamic generateMetadata function
+- Special file conventions that can be used to add static or dynamically generated favicons and OG images.
+With all the options above, Next.js will automatically generate the relevant <head> tags for your page, which can be inspected in the browser's developer tools.
+
+Note: The metadata object and generateMetadata function exports are only supported in Server Components.
+
+## Default fields: 
+There are two default meta tags that are always added even if a route doesn't define metadata:
+- The meta charset tag sets the character encoding for the website.
+- The meta viewport tag sets the viewport width and scale for the website to adjust for different devices.
+
+```js
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+```
+
+The other metadata fields can be defined with the Metadata object (for static metadata) or the generateMetadata function (for generated metadata).
+
+## Static metadata: 
+To define static metadata, export a Metadata object from a static layout.js or page.js file. For example, to add a title and description to the blog route:
+
+```ts
+import type { Metadata } from 'next'
+ 
+export const metadata: Metadata = {
+  title: 'My Blog',
+  description: '...',
+}
+ 
+export default function Layout() {}
+```
+
+You can view a full list of available options, in the [generateMetadata documentation](https://nextjs.org/docs/app/api-reference/functions/generate-metadata#metadata-fields).
+
+## Generated metadata: 
+You can use generateMetadata function to fetch metadata that depends on data. For example, to fetch the title and description for a specific blog post:
+
+```tsx
+import type { Metadata, ResolvingMetadata } from 'next'
+ 
+type Props = {
+  params: Promise<{ slug: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
+ 
+export async function generateMetadata(
+  { params, searchParams }: Props,
+  parent: ResolvingMetadata
+): Promise<Metadata> {
+  const slug = (await params).slug
+ 
+  // fetch post information
+  const post = await fetch(`https://api.vercel.app/blog/${slug}`).then((res) =>
+    res.json()
+  )
+ 
+  return {
+    title: post.title,
+    description: post.description,
+  }
+}
+ 
+export default function Page({ params, searchParams }: Props) {}
+```
+
+### Memoizing data requests: 
+There may be cases where you need to fetch the same data for metadata and the page itself. To avoid duplicate requests, you can use React's cache function to memoize the return value and only fetch the data once. For example, to fetch the blog post information for both the metadata and the page:
+
+```ts
+import { cache } from 'react'
+import { db } from '@/app/lib/db'
+ 
+// getPost will be used twice, but execute only once
+export const getPost = cache(async (slug: string) => {
+  const res = await db.query.posts.findFirst({ where: eq(posts.slug, slug) })
+  return res
+})
+```
+
+```tsx
+import { getPost } from '@/app/lib/data'
+ 
+export async function generateMetadata({
+  params,
+}: {
+  params: { slug: string }
+}) {
+  const post = await getPost(params.slug)
+  return {
+    title: post.title,
+    description: post.description,
+  }
+}
+ 
+export default async function Page({ params }: { params: { slug: string } }) {
+  const post = await getPost(params.slug)
+  return <div>{post.title}</div>
+}
 ```
