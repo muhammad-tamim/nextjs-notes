@@ -168,14 +168,10 @@
 Step 1: Create a new Next.js project:
 
 ```bash
-npx create-next-app@latest project-name --yes
-```
-
-Note: --yes skip all CLI prompts and uses default settings and setup TypeScript, Tailwind, ESLint, App Router, and Turbopack, with import alias @/*. If you want to customize your setup, you can use the below command and answer the prompts according to your preferences:
-
-```bash
 npx create-next-app@latest
 ```
+
+Then answer the following question, since we need to write our code on src folder, so we chose the 3rd options:
 
 ```
 What is your project named? my-app
@@ -185,11 +181,11 @@ Would you like to use the recommended Next.js defaults?
     No, customize settings - Choose your own preferences
 ```
 
-If you choose to customize settings, you'll see the following prompts:
+Then answer the following questions: 
 
 ```
 Would you like to use TypeScript? No / Yes
-Which linter would you like to use? ESLint / Biome / None
+Which linter would you like to use? ESLint / Biome / None 
 Would you like to use React Compiler? No / Yes
 Would you like to use Tailwind CSS? No / Yes
 Would you like your code inside a `src/` directory? No / Yes
@@ -197,6 +193,7 @@ Would you like to use App Router? (recommended) No / Yes
 Would you like to customize the import alias (`@/*` by default)? No / Yes
 What import alias would you like configured? @/*
 ```
+
 
 Step 2: If you want to install daisyUI: 
 
