@@ -1,4 +1,5 @@
 - [Linking and Navigation:](#linking-and-navigation)
+- [Dynamic Routes:](#dynamic-routes)
 
 
 # Linking and Navigation: 
@@ -76,5 +77,64 @@ export default async function Page() {
   }
 
   return <div>Dashboard</div>;
+}
+```
+
+# Dynamic Routes: 
+
+
+```tsx
+src/app/all-posts/page.tsx
+import Link from "next/link"
+
+type postDataTypes = {
+    userId: number,
+    id: number,
+    title: string,
+    body: string,
+}
+
+export default async function AllPost() {
+    const res = await fetch('https://jsonplaceholder.typicode.com/posts')
+    const data: postDataTypes[] = await res.json()
+    return (
+        <div>
+            <h1>ALL Posts</h1>
+            <ul>
+
+                {data?.map(singleData => <li className="text-center my-5" key={singleData.id}>
+                    {singleData.id} | {singleData.title} | <Link href={`/all-posts/${singleData.id}`}><button className="btn">Details</button></Link>
+                </li>)}
+            </ul>
+
+        </div>
+    )
+}
+```
+
+```tsx
+// src/app/all-posts/[id]/page.tsx
+import React from 'react'
+
+type PageProps = {
+    params: Promise<{ id: string }>
+}
+
+export default async function AllPostsDetails({ params }: PageProps) {
+
+    const { id } = await params
+
+
+    const res = await fetch(`https://jsonplaceholder.typicode.com/posts/${id}`)
+    const data = await res.json()
+
+
+    return (
+        <div className='text-center my-10'>
+            <p>id: {data.id}</p>
+            <p>title: {data.title}</p>
+            <p>body: {data.body}</p>
+        </div>
+    )
 }
 ```
