@@ -230,12 +230,14 @@ Next.js is a React framework for building high-performance, SEO-optimized web ap
 
 ### Difference Between Library and Framework: 
 
-| library                                                                                                                                                  | framework                                                                                                                             |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| A library is a collection of pre-written code that you can pick and use whenever you need. You decide when to call it and how to use it in your program. | A framework is a pre-defined structure that you must follow to build your application. It decides when your code runs and how to use. |
-| you cal the library, means you decide when and how to use it.                                                                                            | the framework cal you, means it decide when and how to use it.                                                                        |
-| more flexible, you can combine with others tolls                                                                                                         | less flexible, you must follow its rules and conventions                                                                              |
-| focus on specific task                                                                                                                                   | provides a full solution for building entire apps                                                                                     |
+| library                                                     | framework                                                       |
+| ----------------------------------------------------------- | --------------------------------------------------------------- |
+| Usually solves a specific problem                           | Usually solves multiple problems at a time.                     |
+| Does not control the overall application lifecycle.         | control the overall application lifecycle.                      |
+| We design the folder structure, architecture, and patterns. | Already predefined or strongly guided                           |
+| Highly flexible.                                            | less flexible.                                                  |
+| We decides when and where to call the library.              | It decides when and where our code runs (Inversion of Control). |
+
 
 ### Difference Between React and Next.js: 
 
