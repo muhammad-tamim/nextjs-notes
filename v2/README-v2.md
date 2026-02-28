@@ -287,12 +287,12 @@ export async function DELETE(req: NextRequest, { params }: PageProps) {
 
 export async function PATCH(req: NextRequest, { params }: PageProps) {
     const p = await params
-    const data = req.json()
+    const updatedData = req.json()
     const filter = { _id: new ObjectId(p.id) }
     const updatedData = {
-        $set: {
-            data
-        }
+      $set: {
+        updatedData
+      }
     }
     const result = dbConnect("itemsCollection").updateOne(filter, updatedData)
 
