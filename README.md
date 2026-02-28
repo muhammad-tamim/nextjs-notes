@@ -6,17 +6,10 @@
     - [Key Features of Next.js:](#key-features-of-nextjs)
     - [Difference Between Library and Framework:](#difference-between-library-and-framework)
     - [Difference Between React and Next.js:](#difference-between-react-and-nextjs)
-- [Components in Next.js:](#components-in-nextjs)
-  - [When to use Server and Client Components:](#when-to-use-server-and-client-components)
-  - [Examples:](#examples)
-    - [Using Client Components:](#using-client-components)
-    - [Reducing JS bundle size:](#reducing-js-bundle-size)
-    - [Passing data from Server to Client Components:](#passing-data-from-server-to-client-components)
-    - [Interleaving Server and Client Components:](#interleaving-server-and-client-components)
-    - [Context providers:](#context-providers)
-    - [Sharing data with context and React.cache:](#sharing-data-with-context-and-reactcache)
-    - [Third-party components:](#third-party-components)
-    - [Preventing environment poisoning:](#preventing-environment-poisoning)
+    - [Components in Next.js:](#components-in-nextjs)
+    - [When to use Server and Client Components:](#when-to-use-server-and-client-components)
+    - [React Server Component:](#react-server-component)
+      - [How RSC Marge Client Component inside Server Component:](#how-rsc-marge-client-component-inside-server-component)
 - [Next.js Renderings:](#nextjs-renderings)
   - [1. Client Side Rendering(CSR):](#1-client-side-renderingcsr)
     - [LifeCycle of CSR:](#lifecycle-of-csr)
@@ -105,7 +98,7 @@
   - [Streaming:](#streaming)
     - [With loading.js:](#with-loadingjs)
     - [With `<Suspense>`:](#with-suspense)
-  - [Examples:](#examples-1)
+  - [Examples:](#examples)
     - [Sequential data fetching:](#sequential-data-fetching)
     - [Parallel data fetching:](#parallel-data-fetching)
     - [Preloading data:](#preloading-data)
@@ -118,7 +111,7 @@
   - [Invoking Server Functions:](#invoking-server-functions)
     - [Forms:](#forms)
     - [Event Handlers:](#event-handlers)
-  - [Examples:](#examples-2)
+  - [Examples:](#examples-1)
     - [Showing a pending state:](#showing-a-pending-state)
     - [Refreshing:](#refreshing)
     - [Revalidating:](#revalidating)
@@ -250,483 +243,103 @@ Next.js is a React framework for building high-performance, SEO-optimized web ap
 | **SEO**                  | Poor by default (CSR)                     | Built-in SEO Optimization                     |
 
 
-# Components in Next.js: 
+### Components in Next.js: 
 In Next.js, there are two types of components: 
 
-- Server Component: A React component that runs on the server. It has different types of rendering methods like SSR, SSG, ISR. 
+- Server Component(default): A React component that runs on the server. It has different types of rendering methods like SSR, SSG, ISR. 
 
-- Client Component: A React component that runs on the browser. It has only one type of rendering methods that is CSR.
+- Client Component("use client"): A React component that runs on the browser. It has only one type of rendering methods that is CSR.
 
-Note: In Next.js, components are server components by default. To make a component a client component, you need to add the "use client" directive at the top of the component file.
+Note: In Next.js, components are server components by default. To make a component client component, we need to add the "use client" directive at the top of the component file.
 
-## When to use Server and Client Components: 
-The client and server environments have different capabilities. Server and Client components allow you to run logic in each environment depending on your use case.
+### When to use Server and Client Components: 
 
-Use Client Components when you need:
-- State and event handlers. E.g. onClick, onChange.
-- Lifecycle logic. E.g. useEffect.
-- Browser-only APIs. E.g. localStorage, window, Navigator.geolocation, etc.
-- Custom hooks.
+| Component Type   | Guideline                                        |
+| ---------------- | ------------------------------------------------ |
+| Client Component | Only for UI interaction or dynamic behavior      |
+| Server Component | Use everywhere else for performance and security |
 
-Use Server Components when you need:
-- Fetch data from databases or APIs close to the source.
-- Use API keys, tokens, and other secrets without exposing them to the client.
-- Reduce the amount of JavaScript sent to the browser.
-- Improve the First Contentful Paint (FCP), and stream content progressively to the client.
+**Golden Rule:** Keep components server-first, make only the interactive parts client components.
 
-For example, the `<Page>` component is a Server Component that fetches data about a post, and passes it as props to the `<LikeButton>` which handles client-side interactivity.
 
-app/[id]/page.tsx:
+### React Server Component: 
+Next.js App Router uses React Server Components (RSC) to merge server and client components in a single tree.
 
-```tsx
-import LikeButton from '@/app/ui/like-button'
-import { getPost } from '@/lib/data'
- 
-export default async function Page({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
-  const { id } = await params
-  const post = await getPost(id)
- 
-  return (
-    <div>
-      <main>
-        <h1>{post.title}</h1>
-        {/* ... */}
-        <LikeButton likes={post.likes} />
-      </main>
-    </div>
-  )
-}
-```
-app/ui/like-button.tsx
-```tsx
-'use client'
- 
-import { useState } from 'react'
- 
-export default function LikeButton({ likes }: { likes: number }) {
-  // ...
-}
-```
+#### How RSC Marge Client Component inside Server Component:
 
-## Examples: 
+- Browser sends request to server
+- Server executes Server Components and fetches data
+- Server generates:
+  - HTML (for immediate paint)
+  - For every Client Component, a placeholder in the HTML (like a <div> with React metadata).
+  - A serialized RSC payload containing:
+    - Props for Client Components
+    - Component tree structure
+- Server returns:
+  - HTML (which includes references to CSS & JS assets) 
+  - RSC payload
+- Browser parses HTML → content visible immediately
+- Browser downloads CSS and JS files referenced in `<link>` and `<script>` tags
+- CSS is applied
+- JavaScript executes
+- React by the help of RSC payload:
+  - Reconstructs component tree 
+  - Hydrates Client Components and Page becomes fully interactive
 
-### Using Client Components: 
-
-we can create a Client Component by adding the "use client" directive at the top of the file, above your imports.
 
 ```tsx
-'use client'
- 
-import { useState } from 'react'
- 
-export default function Counter() {
-  const [count, setCount] = useState(0)
- 
-  return (
-    <div>
-      <p>{count} likes</p>
-      <button onClick={() => setCount(count + 1)}>Click me</button>
-    </div>
-  )
-}
-```
+// src/app/posts/page.tsx
 
-"use client" is used to declare a boundary between the Server and Client module graphs (trees).
+import React from 'react'
+import ShowPostsWithLikeFeature from '../components/ShowPostsWithLikeFeature';
 
-Once a file is marked with "use client", all its imports and child components are considered part of the client bundle. This means you don't need to add the directive to every component that is intended for the client.
+type PostType = {
+    userId: number;
+    id: number;
+    title: string;
+    body: string;
+};
 
-### Reducing JS bundle size: 
-
-To reduce the size of your client JavaScript bundles, add 'use client' to specific interactive components instead of marking large parts of your UI as Client Components.
-
-For example, the `<Layout>` component contains mostly static elements like a logo and navigation links, but includes an interactive search bar. `<Search />` is interactive and needs to be a Client Component, however, the rest of the layout can remain a Server Component.
-
-```tsx
-// Client Component
-import Search from './search'
-// Server Component
-import Logo from './logo'
- 
-// Layout is a Server Component by default
-export default function Layout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <nav>
-        <Logo />
-        <Search />
-      </nav>
-      <main>{children}</main>
-    </>
-  )
+export default async function PostsPage() {
+    const res = await fetch("https://jsonplaceholder.typicode.com/posts")
+    const posts: PostType[] = await res.json()
+    return (
+        <div>
+            <h1 className='text-center my-10 text-5xl font-bold'>Welcome to Posts Page</h1>
+            {posts.map(post => <ShowPostsWithLikeFeature key={post.id} post={post}></ShowPostsWithLikeFeature>)}
+        </div>
+    )
 }
 ```
 
 ```tsx
-'use client'
- 
-export default function Search() {
-  // ...
+// src/app/components/ShowPostsWithLikeFeature.tsx
+
+"use client";
+import React, { useState } from 'react'
+
+type PostType = {
+    userId: number;
+    id: number;
+    title: string;
+    body: string;
+};
+
+
+export default function ShowPostsWithLikeFeature({ post }: { post: PostType }) {
+    const [liked, setLiked] = useState(false);
+    return (
+        <div className="p-4 border rounded shadow-sm">
+            <h2 className="font-semibold">{post.title}</h2>
+            <p>{post.body}</p>
+            <button className={`mt-2 px-3 py-1 rounded ${liked ? "bg-green-500 text-white" : "bg-gray-200"}`}
+                onClick={() => setLiked(!liked)}>
+                {liked ? "Liked" : "Like"}
+            </button>
+        </div>
+    )
 }
 ```
-
-### Passing data from Server to Client Components: 
-
-You can pass data from Server Components to Client Components using props.
-
-```tsx
-import LikeButton from '@/app/ui/like-button'
-import { getPost } from '@/lib/data'
- 
-export default async function Page({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
-  const { id } = await params
-  const post = await getPost(id)
- 
-  return <LikeButton likes={post.likes} />
-}
-```
-
-```tsx
-'use client'
- 
-export default function LikeButton({ likes }: { likes: number }) {
-  // ...
-}
-```
-
-Alternatively, you can stream data from a Server Component to a Client Component with the use API.
-
-```tsx
-import Posts from '@/app/ui/posts'
-import { Suspense } from 'react'
- 
-export default function Page() {
-  // Don't await the data fetching function
-  const posts = getPosts()
- 
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <Posts posts={posts} />
-    </Suspense>
-  )
-}
-```
-
-Then, in your Client Component, use the use API to read the promise:
-
-```tsx
-'use client'
-import { use } from 'react'
- 
-export default function Posts({
-  posts,
-}: {
-  posts: Promise<{ id: string; title: string }[]>
-}) {
-  const allPosts = use(posts)
- 
-  return (
-    <ul>
-      {allPosts.map((post) => (
-        <li key={post.id}>{post.title}</li>
-      ))}
-    </ul>
-  )
-}
-```
-
-In the example above, the `<Posts>` component is wrapped in a `<Suspense>` boundary. This means the fallback will be shown while the promise is being resolved. 
-
-### Interleaving Server and Client Components: 
-You can pass Server Components as a prop to a Client Component. This allows you to visually nest server-rendered UI within Client components.
-
-A common pattern is to use children to create a slot in a `<ClientComponent>`. For example, a `<Cart>` component that fetches data on the server, inside a `<Modal>` component that uses client state to toggle visibility.
-
-```tsx
-'use client'
- 
-export default function Modal({ children }: { children: React.ReactNode }) {
-  return <div>{children}</div>
-}
-```
-Then, in a parent Server Component (e.g.`<Page>`), you can pass a `<Cart>` as the child of the `<Modal>`:
-
-```tsx
-import Modal from './ui/modal'
-import Cart from './ui/cart'
- 
-export default function Page() {
-  return (
-    <Modal>
-      <Cart />
-    </Modal>
-  )
-}
-```
-
-### Context providers: 
-React context is commonly used to share global state like the current theme. However, React context is not supported in Server Components.
-
-To use context, create a Client Component that accepts children:
-
-```tsx
-'use client'
- 
-import { createContext } from 'react'
- 
-export const ThemeContext = createContext({})
- 
-export default function ThemeProvider({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  return <ThemeContext.Provider value="dark">{children}</ThemeContext.Provider>
-}
-```
-
-Then, import it into a Server Component (e.g. layout):
-
-```tsx
-import ThemeProvider from './theme-provider'
- 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  return (
-    <html>
-      <body>
-        <ThemeProvider>{children}</ThemeProvider>
-      </body>
-    </html>
-  )
-}
-```
-our Server Component will now be able to directly render your provider, and all other Client Components throughout your app will be able to consume this context.
-
-### Sharing data with context and React.cache: 
-
-You can share fetched data across both Server and Client Components by combining React.cache with context providers.
-
-Create a cached function that fetches data:
-
-```tsx
-// app/lib/user.ts
-import { cache } from 'react'
- 
-export const getUser = cache(async () => {
-  const res = await fetch('https://api.example.com/user')
-  return res.json()
-})
-```
-
-Create a context provider that stores the promise:
-
-```tsx
-// app/user-provider.tsx
-'use client'
- 
-import { createContext } from 'react'
- 
-type User = {
-  id: string
-  name: string
-}
- 
-export const UserContext = createContext<Promise<User> | null>(null)
- 
-export default function UserProvider({
-  children,
-  userPromise,
-}: {
-  children: React.ReactNode
-  userPromise: Promise<User>
-}) {
-  return <UserContext value={userPromise}>{children}</UserContext>
-}
-```
-
-In a layout, pass the promise to the provider without awaiting:
-
-```tsx
-import UserProvider from './user-provider'
-import { getUser } from './lib/user'
- 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const userPromise = getUser() // Don't await
- 
-  return (
-    <html>
-      <body>
-        <UserProvider userPromise={userPromise}>{children}</UserProvider>
-      </body>
-    </html>
-  )
-}
-```
-
-client Components use use() to resolve the promise from context, wrapped in <Suspense> for fallback UI:
-
-```tsx
-// app/ui/profile.tsx
-'use client'
- 
-import { use, useContext } from 'react'
-import { UserContext } from '../user-provider'
- 
-export function Profile() {
-  const userPromise = useContext(UserContext)
-  if (!userPromise) {
-    throw new Error('useContext must be used within a UserProvider')
-  }
-  const user = use(userPromise)
-  return <p>Welcome, {user.name}</p>
-}
-```
-
-```tsx
-// app/page.tsx
-import { Suspense } from 'react'
-import { Profile } from './ui/profile'
- 
-export default function Page() {
-  return (
-    <Suspense fallback={<div>Loading profile...</div>}>
-      <Profile />
-    </Suspense>
-  )
-}
-```
-
-Server Components can also call getUser() directly:
-
-```tsx
-// app/dashboard/page.tsx
-import { getUser } from '../lib/user'
- 
-export default async function DashboardPage() {
-  const user = await getUser() // Cached - same request, no duplicate fetch
-  return <h1>Dashboard for {user.name}</h1>
-}
-```
-
-Since getUser is wrapped with React.cache, multiple calls within the same request return the same memoized result, whether called directly in Server Components or resolved via context in Client Components.
-
-### Third-party components: 
-When using a third-party component that relies on client-only features, you can wrap it in a Client Component to ensure it works as expected.
-
-For example, the `<Carousel />` can be imported from the acme-carousel package. This component uses useState, but it doesn't yet have the "use client" directive.
-
-If you use `<Carousel />` within a Client Component, it will work as expected:
-
-```tsx
-'use client'
- 
-import { useState } from 'react'
-import { Carousel } from 'acme-carousel'
- 
-export default function Gallery() {
-  const [isOpen, setIsOpen] = useState(false)
- 
-  return (
-    <div>
-      <button onClick={() => setIsOpen(true)}>View pictures</button>
-      {/* Works, since Carousel is used within a Client Component */}
-      {isOpen && <Carousel />}
-    </div>
-  )
-}
-```
-
-
-However, if you try to use it directly within a Server Component, you'll see an error. This is because Next.js doesn't know `<Carousel />` is using client-only features.
-
-To fix this, you can wrap third-party components that rely on client-only features in your own Client Components:
-
-```tsx
-'use client'
- 
-import { Carousel } from 'acme-carousel'
- 
-export default Carousel
-```
-
-Now, you can use `<Carousel />` directly within a Server Component:
-
-```tsx
-import Carousel from './carousel'
- 
-export default function Page() {
-  return (
-    <div>
-      <p>View pictures</p>
-      {/*  Works, since Carousel is a Client Component */}
-      <Carousel />
-    </div>
-  )
-}
-```
-
-### Preventing environment poisoning: 
-In Next.js, JavaScript modules can be shared between Server Components and Client Components.
-
-Because of this, it’s possible to accidentally import server-only logic into client-side code. This mistake is known as environment poisoning. It happens when sensitive server logic leaks into the client bundle.
-
-For example, this function uses process.env.API_KEY, which is a secret and must never be exposed to the browser.
-
-```tsx
-export async function getData() {
-  const res = await fetch('https://external-service.com/data', {
-    headers: {
-      authorization: process.env.API_KEY,
-    },
-  })
- 
-  return res.json()
-}
-```
-
-so, in next.js by default handle it like this: 
-- Only environment variables prefixed with NEXT_PUBLIC_ are included in the client bundle.
-- Variables without this prefix are replaced with an empty string ("") in client builds.
-
-So if getData() is accidentally imported into a Client Component, the API_KEY will not be exposed. Instead, it becomes an empty string. This prevents direct secret leakage.
-
-But Even though secrets are stripped from the client bundle, environment poisoning is still dangerous. Because it cause: 
-- Architectural Violation: Server logic should never run in the browser.
-- Logic Exposure Risk: Even if secrets are removed, you might still expose internal API endpoints, Backend request structure, Sensitive business logic
-- Future Maintenance Risk: If someone later adds NEXT_PUBLIC_ by mistake
-
-To make a proper solution of that problem you can use a the built-in safeguard `server-only`: 
-
-```tsx
-import "server-only"
-
-export async function getData() {
-  const res = await fetch("https://external-service.com/data", {
-    headers: {
-      authorization: process.env.API_KEY,
-    },
-  })
-
-  return res.json()
-}
-```
-Now, if someone imports this module into a Client Component, the build will fail. This enforces correct server/client boundaries at compile time.
-
 
 # Next.js Renderings:
 Rendering in Next.js is the process of converting your React components into HTML, CSS, and JavaScript that the browser can display. Depending on how the component is configured, Rendering can happen in different ways in Next.js:, like: 
