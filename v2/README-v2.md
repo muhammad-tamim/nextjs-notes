@@ -1,6 +1,7 @@
 - [Linking and Navigation:](#linking-and-navigation)
 - [Dynamic Routes:](#dynamic-routes)
 - [Metadata:](#metadata)
+- [Api Routes:](#api-routes)
 
 
 # Linking and Navigation: 
@@ -213,3 +214,88 @@ export default async function BlogDetails({ params }: Props) {
 }
 ```
 
+
+# Api Routes: 
+
+```tsx
+// src/lib/dbConnect.ts
+import { MongoClient, ServerApiVersion } from "mongodb";
+
+
+export function dbConnect(collectionName: string) {
+    const uri = process.env.MONGO_URI
+
+    const client = new MongoClient(uri, {
+        serverApi: {
+            version: ServerApiVersion.v1,
+            strict: true,
+            deprecationErrors: true,
+        }
+    })
+
+    return client.db(process.env.DB_NAME).collection(collectionName)
+}
+```
+
+```tsx
+// src/app/api/items/routes
+// http://localhost:3000/api/items
+
+import { dbConnect } from "@/lib/dbConnect"
+import { NextRequest } from "next/server"
+
+export async function GET() {
+    const result = dbConnect("itemsCollection").find({}).toArray()
+    return Response.json(result)
+}
+
+export async function POST(req: NextRequest) {
+    const postedData = await req.json()
+    const result = dbConnect("itemsCollection").insertOne(postedData)
+    return Response.json({ result })
+}
+```
+
+```tsx
+// src/app/api/items/[id]/routes
+// http://localhost:3000/api/items/id
+
+import { dbConnect } from "@/lib/dbConnect"
+import { ObjectId } from "mongodb"
+import { NextRequest } from "next/server"
+
+
+type PageProps = {
+    params: Promise<{ id: string }>
+}
+
+
+export async function GET(req: NextRequest, { params }: PageProps) {
+    const p = await params
+    const result = dbConnect("itemsCollection").findOne({ _id: new ObjectId(p.id) })
+
+    return Response.json(result)
+}
+
+export async function DELETE(req: NextRequest, { params }: PageProps) {
+    const p = await params
+    const result = dbConnect("itemsCollection").deleteOne({ _id: new ObjectId(p.id) })
+
+    return Response.json(result)
+}
+
+
+export async function PATCH(req: NextRequest, { params }: PageProps) {
+    const p = await params
+    const data = req.json()
+    const filter = { _id: new ObjectId(p.id) }
+    const updatedData = {
+        $set: {
+            data
+        }
+    }
+    const result = dbConnect("itemsCollection").updateOne(filter, updatedData)
+
+    return Response.json(result)
+}
+```
