@@ -15,15 +15,22 @@
     - [LifeCycle of CSR:](#lifecycle-of-csr)
     - [Problems with CSR:](#problems-with-csr)
     - [When to use CSR:](#when-to-use-csr)
+    - [How to make a page CSR:](#how-to-make-a-page-csr)
   - [2. Server Side Rendering(SSR):](#2-server-side-renderingssr)
     - [LifeCycle of SSR:](#lifecycle-of-ssr)
     - [Problems with SSR:](#problems-with-ssr)
     - [When to use SSR:](#when-to-use-ssr)
+    - [How to make a page SSR:](#how-to-make-a-page-ssr)
   - [3. Static Site Generation(SSG):](#3-static-site-generationssg)
     - [LifeCycle of SSG:](#lifecycle-of-ssg)
     - [Problems with SSG:](#problems-with-ssg)
     - [When to use SSG:](#when-to-use-ssg)
+    - [How to make a page SSG:](#how-to-make-a-page-ssg)
   - [4. Incremental Static Regeneration(ISR):](#4-incremental-static-regenerationisr)
+    - [Problem With ISR:](#problem-with-isr)
+    - [When to use ISR:](#when-to-use-isr)
+    - [How to make a page ISR:](#how-to-make-a-page-isr)
+  - [Quick Decision Rule:](#quick-decision-rule)
   - [Difference Between CSR, SSR, SSG, ISR:](#difference-between-csr-ssr-ssg-isr)
 - [Folder and File Conventions:](#folder-and-file-conventions)
   - [Top-level Folders:](#top-level-folders)
@@ -342,43 +349,73 @@ export default function ShowPostsWithLikeFeature({ post }: { post: PostType }) {
 ```
 
 # Next.js Renderings:
-Rendering in Next.js is the process of converting your React components into HTML, CSS, and JavaScript that the browser can display. Depending on how the component is configured, Rendering can happen in different ways in Next.js:, like: 
+Rendering is the process of generating the ui from code (components, templates, or data) so that it can be displayed visually in the browser. Depending on how the component is configured, Rendering can happen in different ways in Next.js:, like: 
 - Client Side Rendering (CSR): done in the browser.
 - Server Side Rendering (SSR): done on the server for every request.
 - Static Site Generation (SSG): done once at build time.
 - Incremental Static Regeneration (ISR): done at build time and updated later automatically within a revalidation time.
 
 ## 1. Client Side Rendering(CSR): 
-CSR is the default rendering method for React. Since Next.js components are server component by default, we need the 'use client' directive to make a component client component so it can use client side rendering.
+CSR is the default rendering method for React. 
 
 ### LifeCycle of CSR: 
 - Browser sends a request to the server
-- Server returns minimal HTML (div id="root") along with CSS files and JavaScript bundle
+- Server returns minimal HTML (div id="root") including reference of CSS & JS
 - Browser parses HTML immediately → empty page (blank root div) is shown
 - CSS downloads → styles are applied (still not interactive)
 - JavaScript downloads and executes
 - React mounts the application inside the root div → UI becomes visible and interactive
 - After mounting, client-side data fetching happens (useEffect, etc.), and UI updates when data arrives
 
-**Note:** In React mounting is the process where a React component is created and inserted into the DOM (the HTML structure of the page) for the first time.
-
-![alt text](./assets/images/introduction/csr-1.png)
-![alt text](./assets/images/introduction/csr-2.png)
-![alt text](./assets/images/introduction/csr-3.png)
-
+**Note:** In React mounting is the process where a React component is created and inserted into the DOM for the first time.
 
 ### Problems with CSR: 
 - SEO limitations: Search engines may see just a black div with id root, which can lead to poor search engine rankings.
 - Performance issues: Users see a black page for a few seconds until the JavaScript is fully downloaded and executed, This can negatively impact:
   - First Contentful Paint (FCP)
   - Time To Interactive (TTI)
+- Larger JS bundle
+- Data fetching happens after mount
 
 ### When to use CSR: 
 - When SEO is not a concern
 - When you have a highly interactive application that relies heavily on user interactions.
 
+### How to make a page CSR: 
+
+```tsx
+// app/csr/page.tsx
+"use client"
+
+import { useEffect, useState } from "react"
+
+type Post = {
+  id: number
+  title: string
+}
+
+export default function CSRPage() {
+  const [posts, setPosts] = useState<Post[]>([])
+
+  useEffect(() => {
+    fetch("https://jsonplaceholder.typicode.com/posts")
+      .then(res => res.json())
+      .then(data => setPosts(data))
+  }, [])
+
+  return (
+    <div>
+      <h1>CSR Page</h1>
+      {posts.map(post => (
+        <p key={post.id}>{post.title}</p>
+      ))}
+    </div>
+  )
+}
+```
+
 ## 2. Server Side Rendering(SSR): 
-Server-Side Rendering means that React components are rendered on the server for each request, and the browser receives fully rendered HTML instead of a blank page.Next.js optimizes SSR by caching rendered pages, so for subsequent requests, it can serve cached HTML without re-rendering on the server.
+Server-Side Rendering means that React components are rendered on the server for each request, and the browser receives fully rendered HTML instead of a blank page.
 
 ### LifeCycle of SSR:
 - Browser sends request to server
@@ -402,10 +439,6 @@ Server-Side Rendering means that React components are rendered on the server for
 
 **Note:** Server Components never hydrate. 
 
-![alt text](./assets/images/introduction/ssr-1.png)
-![alt text](./assets/images/introduction/ssr-2.png)
-![alt text](./assets/images/introduction/ssr-3.png)
-
 ### Problems with SSR:
 - Increased server load: The server must render pages per request (next.js handles it by caching)..
 - Still requires JavaScript to be fully interactive, so even the first contentful paint (FCP) is faster, the time to interactive (TTI) still be delayed until the JavaScript is fully executed (next.js handles it by RSC)
@@ -413,7 +446,72 @@ Server-Side Rendering means that React components are rendered on the server for
 ### When to use SSR: 
 - When SEO is a concern
 - When you want to ensure faster first contentful paint (FCP).
+- User-specific content (profile pages, dashboards with personalization).
+- Frequently updated content that must be fresh per request.
+- Pages requiring secure server-side logic.
 
+### How to make a page SSR: 
+
+```tsx
+// app/ssr/page.tsx
+
+type Post = {
+  id: number
+  title: string
+}
+
+export default async function SSRPage() {
+  const res = await fetch("https://jsonplaceholder.typicode.com/posts", {
+    cache: "no-store",
+  })
+
+  const posts: Post[] = await res.json()
+
+  return (
+    <div>
+      <h1>SSR Page</h1>
+      {posts.map(post => (
+        <p key={post.id}>{post.title}</p>
+      ))}
+    </div>
+  )
+}
+```
+
+Note: fetch function in next.js not the same fetch in react.js. Here, next.js optimize the fetch function so it can catch data. So, if the data not changes, next.js automatically chased the data by using fetch function. So for the same data, if we request again next.js don't fetch those data, next.js just give us the data by their catch. Here, we disabled the cache for just for describe the SSR behavior (render every request) thats it.
+
+but for below dynamic route example the fetch function could't cached, because it's dynamic:
+
+```tsx
+// app/ssr/[id]/page.tsx
+
+type Post = {
+  userId: number
+  id: number
+  title: string
+  body: string
+}
+
+type PageProps = {
+  params: {
+    id: string
+  }
+}
+
+export default async function PostDetailsPage({ params }: PageProps) {
+  const res = await fetch(`https://jsonplaceholder.typicode.com/posts/${params.id}`)
+
+  const post: Post = await res.json()
+
+  return (
+    <div>
+      <h1>Post Details</h1>
+      <h2>{post.title}</h2>
+      <p>{post.body}</p>
+    </div>
+  )
+}
+```
 
 ## 3. Static Site Generation(SSG): 
 Static Site Generation (SSG) means the React components are pre-rendered at build time, not per request. The server generates the HTML once during the build, and the same pre-rendered HTML is served for all requests
@@ -445,14 +543,260 @@ In Next.js, we need to use getStaticProps() to fetch data at build time and can 
 - Not ideal for highly dynamic data.
 
 ### When to use SSG: 
-- Blog posts
-- Marketing pages
-- Documentation sites
+- Marketing pages.
+- Blog posts.
+- Documentation.
+- Landing pages.
+- Content that rarely changes.
+
+### How to make a page SSG: 
+
+```tsx
+// app/ssg/page.tsx
+
+type Post = {
+  id: number
+  title: string
+}
+
+export default async function SSGPage() {
+  const res = await fetch("https://jsonplaceholder.typicode.com/posts")
+
+  const posts: Post[] = await res.json()
+
+  return (
+    <div>
+      <h1>SSG Page</h1>
+      {posts.map(post => (
+        <p key={post.id}>{post.title}</p>
+      ))}
+    </div>
+  )
+}
+```
+
+For dynamic routes: 
+
+```tsx
+// app/ssg/[id]/page.tsx
+
+type Post = {
+  userId: number
+  id: number
+  title: string
+  body: string
+}
+
+type PageProps = {
+  params: {
+    id: string
+  }
+}
+
+export async function generateStaticParams() {
+  const res = await fetch("https://jsonplaceholder.typicode.com/posts")
+
+  const posts: Post[] = await res.json()
+
+  return posts.map(post => ({
+    id: post.id.toString()
+  }))
+}
+
+export default async function PostDetailsPage({ params }: PageProps) {
+  const res = await fetch(`https://jsonplaceholder.typicode.com/posts/${params.id}`)
+
+  const post: Post = await res.json()
+
+  return (
+    <div>
+      <h1>Post Details</h1>
+      <h2>{post.title}</h2>
+      <p>{post.body}</p>
+    </div>
+  )
+}
+```
+
+here, generateStaticPrams is the main worker function the make a from SSR to SSG, it's fetch all id and make a page SSG at build time.
 
 ## 4. Incremental Static Regeneration(ISR): 
-ISR allows you to update SSG pages after deployment without rebuilding the entire application. ISR is same as SSG but here you can specify a revalidation time for each page, and Next.js will automatically regenerate the page in the background when a request comes in after the revalidation time has passed.
-
 Incremental Static Regeneration (ISR) is a feature in Next.js that combines the speed of SSG with the flexibility of SSR. With ISR, we can specify a revalidation time for each page, and Next.js will automatically regenerate the page in the background when a request comes in after the revalidation time has passed.
+
+### Problem With ISR:
+- Slight complexity in cache invalidation logic.
+- First request after expiration may be slower (revalidation).
+- Not ideal for real-time updates.
+
+### When to use ISR: 
+- E-commerce product pages.
+- News sites.
+- Blogs with periodic updates.
+- Large content-driven platforms. 
+
+### How to make a page ISR: 
+
+There are two ways to make a pag ISR: 
+- Using route-level revalidation: 
+
+```tsx
+// app/isr/page.tsx
+
+export const revalidate = 60 
+
+type Post = {
+  id: number
+  title: string
+}
+
+export default async function ISRPage() {
+  const res = await fetch("https://jsonplaceholder.typicode.com/posts")
+
+  const posts: Post[] = await res.json()
+
+  return (
+    <div>
+      <h1>ISR Page</h1>
+      {posts.map(post => (
+        <p key={post.id}>{post.title}</p>
+      ))}
+    </div>
+  )
+}
+```
+
+For dynamic routes: 
+
+```tsx
+// app/isr/[id]/page.tsx
+
+export const revalidate = 60
+
+type Post = {
+  userId: number
+  id: number
+  title: string
+  body: string
+}
+
+type PageProps = {
+  params: {
+    id: string
+  }
+}
+
+
+export async function generateStaticParams() {
+  const res = await fetch("https://jsonplaceholder.typicode.com/posts")
+
+  const posts: Post[] = await res.json()
+
+  return posts.map(post => ({
+    id: post.id.toString(),
+  }))
+}
+
+export default async function PostDetailsPage({ params }: PageProps) {
+  const res = await fetch(`https://jsonplaceholder.typicode.com/posts/${params.id}`)
+
+  const post: Post = await res.json()
+
+  return (
+    <div>
+      <h1>Post Details (ISR)</h1>
+      <h2>{post.title}</h2>
+      <p>{post.body}</p>
+    </div>
+  )
+}
+```
+
+- Using fetch level revalidation: 
+
+```tsx
+// app/isr/page.tsx
+
+type Post = {
+  id: number
+  title: string
+}
+
+export default async function ISRPage() {
+  const res = await fetch("https://jsonplaceholder.typicode.com/posts", {
+    next: { revalidate: 60 }
+  })
+
+  const posts: Post[] = await res.json()
+
+  return (
+    <div>
+      <h1>ISR Page</h1>
+      {posts.map(post => (
+        <p key={post.id}>{post.title}</p>
+      ))}
+    </div>
+  )
+}
+```
+
+For dynamic routes: 
+
+```tsx
+// app/isr/[id]/page.tsx
+
+type Post = {
+  userId: number
+  id: number
+  title: string
+  body: string
+}
+
+type PageProps = {
+  params: {
+    id: string
+  }
+}
+
+
+export async function generateStaticParams() {
+  const res = await fetch("https://jsonplaceholder.typicode.com/posts", {
+    next: { revalidate: 60 }
+  })
+
+  const posts: Post[] = await res.json()
+
+  return posts.map(post => ({
+    id: post.id.toString(),
+  }))
+}
+
+export default async function PostDetailsPage({ params }: PageProps) {
+  const res = await fetch(`https://jsonplaceholder.typicode.com/posts/${params.id}`, {
+    next: { revalidate: 60 }
+  })
+
+  const post: Post = await res.json()
+
+  return (
+    <div>
+      <h1>Post Details (ISR)</h1>
+      <h2>{post.title}</h2>
+      <p>{post.body}</p>
+    </div>
+  )
+}
+```
+
+
+## Quick Decision Rule: 
+
+| If You Need                         | Use |
+| ----------------------------------- | --- |
+| High interactivity, no SEO          | CSR |
+| Fresh data every request            | SSR |
+| Static content, best performance    | SSG |
+| Mostly static, but periodic updates | ISR |
+
 
 ## Difference Between CSR, SSR, SSG, ISR: 
 
@@ -466,7 +810,6 @@ Incremental Static Regeneration (ISR) is a feature in Next.js that combines the 
 | **SEO**            | Poor                    | Good                          | Excellent                     | Excellent                                                 |
 | **Best use case**  | Interactive apps        | Dynamic pages                 | Static pages                  | Mostly static pages with occasional updates               |
 | **Server load**    | Low                     | Higher                        | Very low                      | Low                                                       |
-| **Examples**       | Dashboards, chats       | User profiles                 | Blogs, docs                   | Products, news                                            |
 
 Summary: 
 - CSR → Server sends empty HTML → React builds UI
