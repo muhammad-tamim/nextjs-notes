@@ -36,6 +36,10 @@
   - [Top-level Folders:](#top-level-folders)
   - [Top-level Files:](#top-level-files)
   - [Routing Files:](#routing-files)
+  - [Nested Routes:](#nested-routes)
+  - [Dynamic Routes:](#dynamic-routes)
+  - [API Routes:](#api-routes)
+  - [Route Groups:](#route-groups)
   - [Private Folders:](#private-folders)
 - [Linking and Navigating:](#linking-and-navigating)
     - [1. Server Side Rendering:](#1-server-side-rendering)
@@ -1090,9 +1094,44 @@ export async function GET() {
 }
 ```
 
-Note: In the app directory, nested folders define route structure. Each folder represents a route segment that is mapped to a corresponding segment in a URL path.
+## Nested Routes:
+Nested routes are pages inside other pages.
 
-However, even though route structure is defined through folders, a route is not publicly accessible until a page.js or route.js file is added to a route segment.
+```
+src
+└── app
+    ├── layout.tsx                     
+    ├── page.tsx                       (/)
+
+    └── dashboard
+        ├── layout.tsx                 
+        ├── page.tsx                   (/dashboard)
+
+        ├── analytics
+        │   ├── page.tsx               (/dashboard/analytics)
+        │   └── reports
+        │       ├── page.tsx           (/dashboard/analytics/reports)
+        │       ├── yearly
+        │       │   └── page.tsx       (/dashboard/analytics/reports/yearly)
+        │       └── monthly
+        │           └── page.tsx       (/dashboard/analytics/reports/monthly)
+
+        ├── users
+        │   ├── page.tsx               (/dashboard/users)
+        │   ├── active
+        │   │   └── page.tsx           (/dashboard/users/active)
+        │   └── inactive
+        │       └── page.tsx           (/dashboard/users/inactive)
+
+        └── settings
+            ├── page.tsx               (/dashboard/settings)
+            ├── profile
+            │   └── page.tsx           (/dashboard/settings/profile)
+            └── security
+                └── page.tsx           (/dashboard/settings/security)
+```
+
+Note: Even though route structure is defined through folders, a route is not publicly accessible until a page.js or route.js file is added to a route segment.
 
 ![image](./assets/images/Folder-and-file-conventions/colocation1.avif)
 ![image](./assets/images/Folder-and-file-conventions/colocation2.avif)
@@ -1100,6 +1139,366 @@ However, even though route structure is defined through folders, a route is not 
 This means that project files can be safely colocated inside route segments in the app directory without accidentally being routable.
 
 ![image](./assets/images/Folder-and-file-conventions/colocation3.avif)
+
+
+## Dynamic Routes: 
+Dynamic routes are routes where a part of the URL is variable, not fixed. They are created using square brackets and its called segment.
+
+In Next.js there are three types of dynamic route segments available:
+
+1. [slug] → Matches exactly 1 URL segment.
+
+```
+blog/[slug]/page.tsx
+
+<!-- Matches: -->
+
+/blog/post-1
+/blog/hello-world
+
+<!-- Does NOT match: -->
+
+/blog/2024/post-1   
+```
+
+Example: 
+
+```tsx
+// app/blog/[slug]/page.tsx
+
+type PageProps = {
+    params: Promise<{ slug: string }>
+}
+
+export default async function BlogPostPage({ params }: PageProps) {
+    const { slug } = await params
+
+    return (
+        <div>
+            <h1>Single Slug</h1>
+            <p>Slug: {slug}</p>
+        </div>
+    )
+}
+```
+
+2. [...slug] — Matches 1 or more URL segments.
+
+```
+blog/[...slug]/page.tsx
+
+<!-- Matches: -->
+
+/docs/a
+/docs/a/b
+/docs/a/b/c
+
+<!-- Does NOT match: -->
+
+/docs    
+```
+
+Example: 
+
+```tsx
+// app/docs/[...slug]/page.tsx
+
+type PageProps = {
+    params: Promise<{ slug: string[] }>
+}
+
+export default async function DocsPage({ params }: PageProps) {
+    const { slug } = await params
+    // if you enter http://localhost:3000/docs/react/hooks/use-effect
+    console.log(slug) // [ 'react', 'hooks', 'use-effect' ]
+    return (
+        <div>
+            <h1>Catch All Route</h1>
+            <p>Full Path: {slug.join('/')}</p>
+        </div>
+    )
+}
+```
+
+3. [[...slug]] — Matches 0 or more URL segments.
+
+```
+blog/[[...slug]]/page.tsx
+
+<!-- Matches: -->
+
+/shop
+/shop/a
+/shop/a/b
+/shop/a/b/c
+
+note: /shop = undefined
+```
+
+Example: 
+
+```tsx
+// app/shop/[[...slug]]/page.tsx
+
+type PageProps = {
+    params: Promise<{ slug?: string[] }>
+}
+
+export default async function ShopPage({ params }: PageProps) {
+    const { slug } = await params
+
+    // if http://localhost:3000/shop then slag = undefined
+    // if http://localhost:3000/shop/electronics/laptops then slug - [ 'electronics', 'laptops' ]
+    console.log(slug)
+
+    const path = slug?.join('/') ?? "shop"
+    return (
+        <div>
+            <h1>Optional Catch All</h1>
+            <p>Path: {path}</p>
+        </div>
+    )
+}
+```
+
+## API Routes: 
+API Routes in Next.js are built-in server endpoints that let you implement backend logic and database operations inside the same project, without needing a separate Express or Node server.
+
+```tsx
+// src/lib/dbConnect.ts
+import { MongoClient, ServerApiVersion } from "mongodb";
+
+
+export function dbConnect(collectionName: string) {
+    const uri = process.env.MONGO_URI
+
+    const client = new MongoClient(uri, {
+        serverApi: {
+            version: ServerApiVersion.v1,
+            strict: true,
+            deprecationErrors: true,
+        }
+    })
+
+    return client.db(process.env.DB_NAME).collection(collectionName)
+}
+```
+
+```tsx
+// src/app/api/items/routes
+// http://localhost:3000/api/items
+
+import { dbConnect } from "@/lib/dbConnect"
+import { NextRequest } from "next/server"
+
+export async function GET() {
+    const result = dbConnect("itemsCollection").find({}).toArray()
+    return Response.json(result)
+}
+
+export async function POST(req: NextRequest) {
+    const postedData = await req.json()
+    const result = dbConnect("itemsCollection").insertOne(postedData)
+    return Response.json({ result })
+}
+```
+
+```tsx
+// src/app/api/items/[id]/routes
+// http://localhost:3000/api/items/id
+
+import { dbConnect } from "@/lib/dbConnect"
+import { ObjectId } from "mongodb"
+import { NextRequest } from "next/server"
+
+
+type PageProps = {
+    params: Promise<{ id: string }>
+}
+
+
+export async function GET(req: NextRequest, { params }: PageProps) {
+    const p = await params
+    const result = dbConnect("itemsCollection").findOne({ _id: new ObjectId(p.id) })
+
+    return Response.json(result)
+}
+
+export async function DELETE(req: NextRequest, { params }: PageProps) {
+    const p = await params
+    const result = dbConnect("itemsCollection").deleteOne({ _id: new ObjectId(p.id) })
+
+    return Response.json(result)
+}
+
+
+export async function PATCH(req: NextRequest, { params }: PageProps) {
+    const p = await params
+    const updatedData = req.json()
+    const filter = { _id: new ObjectId(p.id) }
+    const updatedData = {
+      $set: {
+        updatedData
+      }
+    }
+    const result = dbConnect("itemsCollection").updateOne(filter, updatedData)
+
+    return Response.json(result)
+}
+```
+
+## Route Groups:
+Route groups (folderName) used to separate features or sections of a route without affecting the URL.
+
+```
+app/
+  (auth)/
+    login/
+    register/
+
+  (dashboard)/
+    analytics/
+    users/
+```
+
+Even though folders are grouped: /login, /register, /analytics, /users etc, there is no (auth) or (dashboard) in the URL. 
+
+Means Routes groups don't create routes.
+
+![image](./assets/images/Folder-and-file-conventions/route-groups.avif)
+
+
+<!-- ## Parallel Routes: 
+Parallel Routes (@folder) render multiple routes at the same time without unmounting each other. Perfect for sidebars, persistent headers, dashboards.
+
+```
+app/
+ ├─ dashboard/
+ │   ├─ layout.tsx
+ │   ├─ page.tsx
+ │   ├─ @sidebar/
+ │   │   └─ page.tsx
+ │   └─ settings/
+ │       └─ page.tsx
+```
+
+```tsx
+// dashboard/layout.tsx
+
+type LayoutProps = {
+  children: React.ReactNode
+  sidebar: React.ReactNode
+}
+
+export default function DashboardLayout({
+  children,
+  sidebar,
+}: LayoutProps) {
+  return (
+    <div className="flex">
+      <div className="w-1/4 bg-gray-100 p-4">
+        {sidebar}
+      </div>
+
+      <div className="flex-1 p-6">
+        {children}
+      </div>
+    </div>
+  )
+}
+```
+
+```tsx
+// dashboard/page.tsx
+
+export default function DashboardHome() {
+  return <h1>Dashboard Home</h1>
+}
+```
+
+```tsx
+// @sidebar/page.tsx
+
+export default function Sidebar() {
+  return (
+    <div>
+      <h2>Dashboard Sidebar</h2>
+      <ul>
+        <li>Overview</li>
+        <li>Settings</li>
+      </ul>
+    </div>
+  )
+}
+```
+
+so, when you visit `/dashboard`, Next renders:
+- @sidebar/page.tsx → into sidebar
+- dashboard/page.tsx → into children
+
+But when you When you navigate to `/dashboard/settings`, next.js: 
+- Only render changed children.
+- @sidebar stays mounted.
+ -->
+
+<!-- ## Intercepted Routes: 
+Intercepted routes allow overlays or modals a route on top of the current route, without unmounting the underlying route.
+
+In Next.js there are 4 types of intercepted available: 
+
+### 1. Intercept Sibling (.)folder: 
+Preview a sibling page in a modal.
+
+```
+app/
+ ├─ dashboard/
+ │   ├─ page.js
+ │   └─ (.)details/
+ │       └─ page.js
+```
+
+here, Navigate to /dashboard/(.)details → modal appears on top of dashboard without  un-mounted Dashboard.
+
+### 2. Intercept Parent (..)folder: 
+Open a child route as an overlay on the parent.
+
+```
+app/
+ ├─ projects/
+ │   ├─ page.js
+ │   └─ (..)tasks/
+ │       └─ page.js
+```
+
+Navigating to /projects/(..)tasks shows tasks overlay while the parent projects page remains visible.
+
+### 3. Intercept Two Levels (..)(..)folder: 
+Deep nested modals or overlays.
+
+```
+app/
+ ├─ organization/
+ │   ├─ page.js
+ │   └─ teams/
+ │       └─ page.js
+ │       └─ (..)(..)members/
+ │           └─ page.js
+```
+
+Shows members overlay two levels up in the hierarchy.
+
+### 4. Intercept From Root (...)folder
+Global modal anywhere in the app.
+
+```
+app/
+ ├─ page.js
+ └─ (...)loginModal/
+     └─ page.js
+```
+Navigate to / (...)loginModal → modal opens on top of any current page. Base page remains mounted, state preserved.
+ -->
+
 
 ## Private Folders:
 Private folders (_folderName) used to organize internal components, helpers, or utilities of a route without affecting the URL
@@ -1129,7 +1528,7 @@ Private folders are not routable at all.
 ![image](./assets/images/Folder-and-file-conventions/private-folders.avif)
 
 
-Or if you don't want to use private folders there are others options available: 
+**Note:** if you don't want to use private folders there are others options available: 
 
 - By Store project files outside of app: 
 
@@ -1146,7 +1545,6 @@ Or if you don't want to use private folders there are others options available:
 
 # Linking and Navigating:
 In Next.js, routes are Server Components by default. That does not mean navigation is slow — because Next.js combines:
-
 
 ### 1. Server Side Rendering: 
 
