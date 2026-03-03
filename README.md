@@ -36,36 +36,7 @@
   - [Top-level Folders:](#top-level-folders)
   - [Top-level Files:](#top-level-files)
   - [Routing Files:](#routing-files)
-  - [Nested Routes:](#nested-routes)
-  - [Dynamic Routes:](#dynamic-routes)
-  - [Parallel Routes:](#parallel-routes)
-  - [Intercepted Routes:](#intercepted-routes)
-    - [1. Intercept Sibling (.)folder:](#1-intercept-sibling-folder)
-    - [2. Intercept Parent (..)folder:](#2-intercept-parent-folder)
-    - [3. Intercept Two Levels (..)(..)folder:](#3-intercept-two-levels-folder)
-    - [4. Intercept From Root (...)folder](#4-intercept-from-root-folder)
-  - [Route Groups and Private Folders:](#route-groups-and-private-folders)
-    - [Route Groups:](#route-groups)
-    - [Private Folders:](#private-folders)
-  - [Organizing project:](#organizing-project)
-    - [Colocation:](#colocation)
-    - [Private Folders:](#private-folders-1)
-    - [Route groups:](#route-groups-1)
-    - [src folder](#src-folder)
-    - [Store project files outside of app:](#store-project-files-outside-of-app)
-    - [Store project files in top-level folders inside of app:](#store-project-files-in-top-level-folders-inside-of-app)
-    - [Split project files by feature or route:](#split-project-files-by-feature-or-route)
-    - [Organize routes without affecting the URL path:](#organize-routes-without-affecting-the-url-path)
-    - [Opting specific segments into a layout:](#opting-specific-segments-into-a-layout)
-    - [Opting for loading skeletons on a specific route:](#opting-for-loading-skeletons-on-a-specific-route)
-    - [Creating multiple root layouts:](#creating-multiple-root-layouts)
-- [Layouts and Pages:](#layouts-and-pages)
-  - [Creating a page:](#creating-a-page)
-  - [Creating a layout:](#creating-a-layout)
-  - [Creating a nested route:](#creating-a-nested-route)
-  - [Nesting layouts:](#nesting-layouts)
-  - [Creating a dynamic segment:](#creating-a-dynamic-segment)
-  - [Linking between pages:](#linking-between-pages)
+  - [Private Folders:](#private-folders)
 - [Linking and Navigating:](#linking-and-navigating)
     - [1. Server Side Rendering:](#1-server-side-rendering)
     - [2. Prefetching:](#2-prefetching)
@@ -905,224 +876,232 @@ Routing files are special files that define how routes behave, what UI they rend
 | `global-error` | Error UI for the entire app                                                                                                                 |
 
 
-## Nested Routes:
-Nested routes are pages inside other pages.
+**Example:**
 
 ```
-src
-└── app
-    ├── layout.tsx                     
-    ├── page.tsx                       (/)
-
-    └── dashboard
-        ├── layout.tsx                 
-        ├── page.tsx                   (/dashboard)
-
-        ├── analytics
-        │   ├── page.tsx               (/dashboard/analytics)
-        │   └── reports
-        │       ├── page.tsx           (/dashboard/analytics/reports)
-        │       ├── yearly
-        │       │   └── page.tsx       (/dashboard/analytics/reports/yearly)
-        │       └── monthly
-        │           └── page.tsx       (/dashboard/analytics/reports/monthly)
-
-        ├── users
-        │   ├── page.tsx               (/dashboard/users)
-        │   ├── active
-        │   │   └── page.tsx           (/dashboard/users/active)
-        │   └── inactive
-        │       └── page.tsx           (/dashboard/users/inactive)
-
-        └── settings
-            ├── page.tsx               (/dashboard/settings)
-            ├── profile
-            │   └── page.tsx           (/dashboard/settings/profile)
-            └── security
-                └── page.tsx           (/dashboard/settings/security)
-```
-
-| File Location                                 | URL                                   |
-| --------------------------------------------- | ------------------------------------- |
-| `app/page.tsx`                                | `/`                                   |
-| `dashboard/page.tsx`                          | `/dashboard`                          |
-| `dashboard/analytics/page.tsx`                | `/dashboard/analytics`                |
-| `dashboard/analytics/reports/page.tsx`        | `/dashboard/analytics/reports`        |
-| `dashboard/analytics/reports/yearly/page.tsx` | `/dashboard/analytics/reports/yearly` |
-| `dashboard/users/active/page.tsx`             | `/dashboard/users/active`             |
-| `dashboard/settings/security/page.tsx`        | `/dashboard/settings/security`        |
-
-## Dynamic Routes: 
-Dynamic routes are routes where a part of the URL is variable, not fixed. They are created using square brackets.
-
-In Next.js there are three types of dynamic route segments available:
-
-1. [slug] → Matches exactly 1 URL segment.
-
-```
-blog/[slug]/page.tsx
-
-<!-- Matches: -->
-
-/blog/post-1
-/blog/hello-world
-
-<!-- Does NOT match: -->
-
-/blog/2024/post-1   
-```
-
-2. [...slug] — Matches 1 or more URL segments.
-
-```
-blog/[...slug]/page.tsx
-
-<!-- Matches: -->
-
-/blog/a
-/blog/a/b
-/blog/a/b/c
-
-<!-- Does NOT match: -->
-
-/blog    
-```
-
-
-3. [[...slug]] — Matches 0 or more URL segments.
-
-```
-blog/[[...slug]]/page.tsx
-
-<!-- Matches: -->
-
-/blog
-/blog/a
-/blog/a/b
-/blog/a/b/c
-```
-
-summary: 
-
-| Pattern       | Matches            | Type of param           |
-| ------------- | ------------------ | ----------------------- |
-| `[slug]`      | Exactly 1 segment  | `string`                |
-| `[...slug]`   | 1 or more segments | `string[]`              |
-| `[[...slug]]` | 0 or more segments | `string[] \| undefined` |
-
-
-## Parallel Routes: 
-Parallel Routes (@folder) render multiple routes at the same time without unmounting each other. Perfect for sidebars, persistent headers, dashboards.
-
-```
-app/
- ├─ layout.tsx
- ├─ @sidebar/
- │   └─ page.tsx
- └─ main/
-     └─ page.tsx
+src/
+ └── app/
+      ├── layout.tsx
+      ├── page.tsx
+      ├── loading.tsx
+      ├── error.tsx
+      ├── global-error.tsx
+      ├── not-found.tsx
+      ├── dashboard/
+      │     ├── page.tsx
+      │     ├── loading.tsx
+      │     ├── error.tsx
+      │     └── not-found.tsx
+      └── api/
+            └── hello/
+                  └── route.ts
 ```
 
 ```tsx
-export default function RootLayout({ children }) {
+// src/app/layout.tsx
+
+import type { Metadata } from "next";
+import "./globals.css";
+
+
+export const metadata: Metadata = {
+  title: "Create Next App",
+  description: "Generated by create next app",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+      </body>
+    </html>
+  );
+}
+```
+
+```tsx
+// src/app/page.tsx
+
+export default function Home() {
   return (
     <div>
-      <div className="flex">
-
-        <div className="w-1/4 bg-gray-100">
-          {/* Parallel slot */}
-          <Slot name="sidebar" />
-        </div>
-      
-        <div className="flex-1 p-4">
-          {/* Main content */}
-          {children}
-        </div>
-      
-      </div>
+      <h1>Home Page</h1>
+      <p>This is the main route (/)</p>
     </div>
   );
 }
 ```
 
-here, The `<Slot name="sidebar" />` will render content from @sidebar/page.js and Navigating between main/page.tsx and other pages does not unmount the sidebar.
+```tsx
+// src/app/loading.tsx
 
-## Intercepted Routes: 
-Intercepted routes allow overlays or modals a route on top of the current route, without unmounting the underlying route.
+import React from 'react'
 
-In Next.js there are 4 types of intercepted available: 
-
-### 1. Intercept Sibling (.)folder: 
-Preview a sibling page in a modal.
-
-```
-app/
- ├─ dashboard/
- │   ├─ page.js
- │   └─ (.)details/
- │       └─ page.js
+export default function loading() {
+    return (
+        <div>Loading Home Page........</div>
+    )
+}
 ```
 
-here, Navigate to /dashboard/(.)details → modal appears on top of dashboard without  un-mounted Dashboard.
+```tsx
+// src/app/error.tsx
+// For testing, Inside the page.tsx, temporarily add: `throw new Error("Test root error");`
 
-### 2. Intercept Parent (..)folder: 
-Open a child route as an overlay on the parent.
+"use client";
 
-```
-app/
- ├─ projects/
- │   ├─ page.js
- │   └─ (..)tasks/
- │       └─ page.js
-```
-
-Navigating to /projects/(..)tasks shows tasks overlay while the parent projects page remains visible.
-
-### 3. Intercept Two Levels (..)(..)folder: 
-Deep nested modals or overlays.
-
-```
-app/
- ├─ organization/
- │   ├─ page.js
- │   └─ teams/
- │       └─ page.js
- │       └─ (..)(..)members/
- │           └─ page.js
+export default function Error({
+    error,
+    reset,
+}: {
+    error: Error;
+    reset: () => void;
+}) {
+    return (
+        <div>
+            <h2>Something went wrong on this route.</h2>
+            <p>{error.message}</p>
+            <button onClick={() => reset()}>Try Again</button>
+        </div>
+    );
+}
 ```
 
-Shows members overlay two levels up in the hierarchy.
+```tsx
+// src/app/global-error.tsx
+// Note: This must include `<html>` and `<body>`.
 
-### 4. Intercept From Root (...)folder
-Global modal anywhere in the app.
+"use client";
 
-```
-app/
- ├─ page.js
- └─ (...)loginModal/
-     └─ page.js
-```
-Navigate to / (...)loginModal → modal opens on top of any current page. Base page remains mounted, state preserved.
-
-## Route Groups and Private Folders:
-
-### Route Groups:
-Route groups (folderName) used to separate features or sections of a route without affecting the URL.
-
-```
-app/
-  (auth)/
-    login/
-    register/
-
-  (dashboard)/
-    analytics/
-    users/
+export default function GlobalError({
+    error,
+    reset,
+}: {
+    error: Error;
+    reset: () => void;
+}) {
+    return (
+        <html>
+            <body>
+                <h1>Global Error</h1>
+                <p>{error.message}</p>
+                <button onClick={() => reset()}>Reload</button>
+            </body>
+        </html>
+    );
+}
 ```
 
-Even though folders are grouped: /login, /register, /analytics, /users etc, there is no (auth) or (dashboard) in the URL. 
+```tsx
+// src/app/not-found.tsx
 
-### Private Folders:
+export default function NotFound() {
+    return (
+        <div>
+            <h1>404 - Page Not Found</h1>
+            <p>This route does not exist.</p>
+        </div>
+    );
+}
+```
+
+```tsx
+// src/app/dashboard/page.tsx
+
+import { notFound } from "next/navigation";
+
+export default async function DashboardPage() {
+    // forcefully want 2 sec for showing loading spinner
+    await new Promise((res) => setTimeout(res, 2000));
+
+    // if you want forcefully render notFound(), then make it true
+    const shouldNotExist = false;
+
+    if (shouldNotExist) {
+        notFound();
+    }
+
+    return (
+        <div>
+            <h1>Dashboard Page</h1>
+            <p>This is /dashboard route.</p>
+        </div>
+    );
+}
+```
+
+```tsx
+// src/app/dashboard/loading.tsx
+
+export default function DashboardLoading() {
+    return <h2>Loading Dashboard...</h2>;
+}
+```
+
+```tsx
+// src/app/dashboard/error.tsx
+
+"use client";
+
+export default function DashboardError({
+    error,
+    reset,
+}: {
+    error: Error;
+    reset: () => void;
+}) {
+    return (
+        <div>
+            <h2>Dashboard Error</h2>
+            <p>{error.message}</p>
+            <button onClick={() => reset()}>Try Again</button>
+        </div>
+    );
+}
+```
+
+```tsx
+// src/app/dashboard/not-found.tsx
+
+export default function DashboardNotFound() {
+    return (
+        <div>
+            <h1>Dashboard Not Found</h1>
+        </div>
+    );
+}
+```
+
+```tsx
+// src/app/api/hello/route.ts
+// http://localhost:3000/api/hello
+
+import { NextResponse } from "next/server";
+
+export async function GET() {
+    return NextResponse.json({
+        message: "Hello from API Route",
+    });
+}
+```
+
+Note: In the app directory, nested folders define route structure. Each folder represents a route segment that is mapped to a corresponding segment in a URL path.
+
+However, even though route structure is defined through folders, a route is not publicly accessible until a page.js or route.js file is added to a route segment.
+
+![image](./assets/images/Folder-and-file-conventions/colocation1.avif)
+![image](./assets/images/Folder-and-file-conventions/colocation2.avif)
+
+This means that project files can be safely colocated inside route segments in the app directory without accidentally being routable.
+
+![image](./assets/images/Folder-and-file-conventions/colocation3.avif)
+
+## Private Folders:
 Private folders (_folderName) used to organize internal components, helpers, or utilities of a route without affecting the URL
 
 Instead of mixing:
@@ -1145,158 +1124,25 @@ dashboard/
 
 The _components and _utils folder is not a route and Cannot be accessed in the browser. It's Exists only for making our routes folder clean and organized.
 
-## Organizing project: 
-
-### Colocation:
-In the app directory, nested folders define route structure. Each folder represents a route segment that is mapped to a corresponding segment in a URL path.
-
-However, even though route structure is defined through folders, a route is not publicly accessible until a page.js or route.js file is added to a route segment.
-
-![image](./assets/images/Folder-and-file-conventions/colocation1.avif)
-![image](./assets/images/Folder-and-file-conventions/colocation2.avif)
-
-This means that project files can be safely colocated inside route segments in the app directory without accidentally being routable.
-
-![image](./assets/images/Folder-and-file-conventions/colocation3.avif)
-
-### Private Folders: 
 Private folders are not routable at all.
 
 ![image](./assets/images/Folder-and-file-conventions/private-folders.avif)
 
 
-### Route groups: 
-Routes groups don't create routes.
+Or if you don't want to use private folders there are others options available: 
 
-![image](./assets/images/Folder-and-file-conventions/route-groups.avif)
-
-### src folder
-
-![image](./assets/images/Folder-and-file-conventions/src-directory.avif)
-
-### Store project files outside of app: 
-This strategy stores all application code in shared folders in the root of your project and keeps the app directory purely for routing purposes.
+- By Store project files outside of app: 
 
 ![image](./assets/images/Folder-and-file-conventions/project-organization-project-root.avif)
 
-### Store project files in top-level folders inside of app:
-This strategy stores all application code in shared folders in the root of the app directory.
+- By Store project files in top-level folders inside of app:
 
 ![image](./assets/images/Folder-and-file-conventions/project-organization-app-root.avif)
 
-### Split project files by feature or route:
-This strategy stores globally shared application code in the root app directory and splits more specific application code into the route segments that use them.
+- By splitting project files by feature or route:
 
 ![image](./assets/images/Folder-and-file-conventions/project-organization-app-root-split.avif)
 
-### Organize routes without affecting the URL path: 
-To organize routes without affecting the URL, create a group to keep related routes together. The folders in parenthesis will be omitted from the URL (e.g. (marketing) or (shop)).
-
-![image](./assets/images/Folder-and-file-conventions/route-group-organisation.avif)
-
-Even though routes inside (marketing) and (shop) share the same URL hierarchy, you can create a different layout for each group by adding a layout.js file inside their folders.
-
-![image](./assets/images/Folder-and-file-conventions/route-group-multiple-layouts.avif)
-
-### Opting specific segments into a layout:
-To opt specific routes into a layout, create a new route group (e.g. (shop)) and move the routes that share the same layout into the group (e.g. account and cart). The routes outside of the group will not share the layout (e.g. checkout).
-
-![image](./assets/images/Folder-and-file-conventions/route-group-opt-in-layouts.avif)
-
-### Opting for loading skeletons on a specific route: 
-To apply a loading skeleton via a loading.js file to a specific route, create a new route group (e.g., /(overview)) and then move your loading.tsx inside that route group.
-
-![image](./assets/images/Folder-and-file-conventions/route-group-loading.avif)
-
-Now, the loading.tsx file will only apply to your dashboard → overview page instead of all your dashboard pages without affecting the URL path structure.
-
-### Creating multiple root layouts: 
-To create multiple root layouts, remove the top-level layout.js file, and add a layout.js file inside each route group. This is useful for partitioning an application into sections that have a completely different UI or experience. The <html> and <body> tags need to be added to each root layout.
-
-![image](./assets/images/Folder-and-file-conventions/route-group-multiple-root-layouts.avif)
-
-In the example above, both (marketing) and (shop) have their own root layout.
-
-# Layouts and Pages:
-
-## Creating a page:
-A page is a UI that is rendered on a specific route.
-
-![image](./assets/images/layouts-and-pages/page-special-file.avif)
-
-## Creating a layout: 
-A layout is UI that is shared between multiple pages.
-
-![image](./assets/images/layouts-and-pages/layout-special-file.avif)
-
-The layout above is called a root layout because it's defined at the root of the app directory. The root layout is required and must contain html and body tags.
-
-## Creating a nested route: 
-A nested route is a route composed of multiple URL segments. For example, the /blog/[slug] route is composed of three segments:
-- / (Root Segment)
-- blog (Segment)
-- [slug] (Leaf Segment)
-
-In Next.js:
-- Folders are used to define the route segments that map to URL segments.
-- Files (like page and layout) are used to create UI that is shown for a segment.
-
-To create nested routes, you can nest folders inside each other. For example, to add a route for /blog, create a folder called blog in the app directory. Then, to make /blog publicly accessible, add a page.tsx file:
-
-![image](./assets/images/layouts-and-pages/blog-nested-route.avif)
-
-You can continue nesting folders to create nested routes. For example, to create a route for a specific blog post, create a new [slug] folder inside blog and add a page file:
-
-![image](./assets/images/layouts-and-pages/blog-post-nested-route.avif)
-
-Wrapping a folder name in square brackets (e.g. [slug]) creates a dynamic route segment which is used to generate multiple pages from data. e.g. blog posts, product pages, etc.
-
-## Nesting layouts:
-
-![image](./assets/images/layouts-and-pages/nested-layouts.avif)
-
-## Creating a dynamic segment: 
-
-```tsx
-export default async function BlogPostPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>
-}) {
-  const { slug } = await params
-  const post = await getPost(slug)
- 
-  return (
-    <div>
-      <h1>{post.title}</h1>
-      <p>{post.content}</p>
-    </div>
-  )
-}
-```
-
-## Linking between pages: 
-You can use the `<Link>` component to navigate between routes. `<Link>` is a built-in Next.js component that extends the HTML `<a>` tag to provide prefetching and client-side navigation.
-
-For example, to generate a list of blog posts, import `<Link>` from next/link and pass a href prop to the component:
-
-```tsx
-import Link from 'next/link'
- 
-export default async function Post({ post }) {
-  const posts = await getPosts()
- 
-  return (
-    <ul>
-      {posts.map((post) => (
-        <li key={post.slug}>
-          <Link href={`/blog/${post.slug}`}>{post.title}</Link>
-        </li>
-      ))}
-    </ul>
-  )
-}
-```
 
 # Linking and Navigating:
 In Next.js, routes are Server Components by default. That does not mean navigation is slow — because Next.js combines:
