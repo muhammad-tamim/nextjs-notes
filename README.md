@@ -46,6 +46,10 @@
     - [`useRouter()` (programmatic Navigation):](#userouter-programmatic-navigation)
     - [`redirect()` (Server Redirect):](#redirect-server-redirect)
     - [`notFound()` (Triggers nearest not-found.tsx):](#notfound-triggers-nearest-not-foundtsx)
+- [Metadata:](#metadata)
+    - [Global Metadata (Layout Level):](#global-metadata-layout-level)
+    - [Static Metadata:](#static-metadata)
+    - [Dynamic Metadata:](#dynamic-metadata)
 
 # Setup: 
 
@@ -1599,3 +1603,113 @@ if (!data) {
 ```
 
 
+
+# Metadata: 
+Metadata is information about a web page that browsers, search engines, and social platforms use to understand the page. It defines on the HTML `<head>` tag. There are lots of properties available in metadata, but title, description, robots, Open Graph, and Twitter cover most real-world use cases. Everything else is optional.
+
+```ts
+export const metadata: Metadata = {
+  title: "My Next.js App",
+  description: "This is a sample Next.js application with proper metadata.",
+  authors: [{ name: "Md. Tamim" }],
+  keywords: ["Next.js", "React", "Full-Stack", "Web Development"],
+  robots: "index, follow",
+  openGraph: {
+    title: "My Next.js App",
+    description: "This is a sample Next.js application with proper metadata.",
+    url: "https://example.com",
+    siteName: "NextApp",
+    images: [
+      {
+        url: "https://example.com/og-image.png",
+        width: 1200,
+        height: 630,
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "My Next.js App",
+    description: "This is a sample Next.js application with proper metadata.",
+    images: ["https://example.com/twitter-image.png"],
+  },
+};
+```
+
+here, 
+- Title – The page title shown in browser tabs and search results.
+- Description – A short summary of the page for SEO and social previews.
+- Keywords – List of relevant keywords (less used today worlds, but occasionally helpful).
+- Author – Name of the content creator.
+- Robots – SEO control (index, noindex, follow, nofollow).
+- openGraph: Used by Facebook, LinkedIn, WhatsApp, and others for link previews.
+- Twitter: Used by twitter for link previews
+
+Note: A link preview is the small summary that social platforms show when you share a URL. It usually contains a title, description, and image, so people get an idea of what the page is about without clicking the link.
+
+### Global Metadata (Layout Level): 
+
+```ts
+// app/layout.tsx
+
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: {
+    default: 'Tamim Dev',
+    template: '%s | Tamim Dev',
+  },
+  description: 'Full-stack developer portfolio',
+}
+```
+**Shows as:** page with title: Title | Tamim Dev, if no title then: Tamim Dev
+
+
+### Static Metadata:
+
+```tsx
+// app/page.tsx
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Home',
+  description: 'This is my homepage',
+}
+
+export default function HomePage() {
+  return <h1>Home</h1>
+}
+```
+**shows as:** Home | Tamim Dev
+
+### Dynamic Metadata: 
+
+```tsx
+// app/blog/[slug]/page.tsx
+import type { Metadata } from 'next'
+
+type Props = {
+  params: { slug: string }
+}
+
+export async function generateMetadata(
+  { params }: Props
+): Promise<Metadata> {
+
+  const res = await fetch(`https://api.example.com/posts/${params.slug}`)
+  const post = await res.json()
+
+  return {
+    title: post.title,
+    description: post.excerpt,
+  }
+}
+
+export default async function BlogDetails({ params }: Props) {
+  return <div>{params.slug}</div>
+}
+```
+
+**shows as:** slug | Tamim Dev
