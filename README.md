@@ -42,16 +42,10 @@
   - [Route Groups:](#route-groups)
   - [Private Folders:](#private-folders)
 - [Linking and Navigating:](#linking-and-navigating)
-    - [1. Server Side Rendering:](#1-server-side-rendering)
-    - [2. Prefetching:](#2-prefetching)
-    - [3. Streaming:](#3-streaming)
-    - [4. Client-side Transitions:](#4-client-side-transitions)
-    - [What can make transitions slow:](#what-can-make-transitions-slow)
-      - [1. Dynamic routes without loading.tsx:](#1-dynamic-routes-without-loadingtsx)
-      - [2. Dynamic segments without generateStaticParams:](#2-dynamic-segments-without-generatestaticparams)
-      - [3. Slow networks:](#3-slow-networks)
-      - [4. Disabling prefetching:](#4-disabling-prefetching)
-      - [5. Hydration not completed:](#5-hydration-not-completed)
+    - [`<Link>` (Declarative Navigation):](#link-declarative-navigation)
+    - [`useRouter()` (programmatic Navigation):](#userouter-programmatic-navigation)
+    - [`redirect()` (Server Redirect):](#redirect-server-redirect)
+    - [notFound() (Triggers nearest not-found.tsx):](#notfound-triggers-nearest-not-foundtsx)
 - [Cache Components:](#cache-components)
   - [How rendering works with Cache Components:](#how-rendering-works-with-cache-components)
   - [Automatically pre-rendered content:](#automatically-pre-rendered-content)
@@ -1544,40 +1538,20 @@ Private folders are not routable at all.
 
 
 # Linking and Navigating:
-In Next.js, routes are Server Components by default. That does not mean navigation is slow — because Next.js combines:
 
-### 1. Server Side Rendering: 
+### `<Link>` (Declarative Navigation):
+In Next.js, `<Link>` not works same as react router `<Link>`, Because next.js has server component as well. For preventing slow navigation for server component ans as well as client component Next.js combines:
 
-We already discuss it earlier
+1. Prefetching (Optimized for server components):
+Happens before navigation (background optimization). In next.js Prefetching happens when the link is hovered or enter the viewport, Its works differently based on server and client component: 
+- For server component Prefetching happens when the link is hovered or enters the viewport 
+- For client component Prefetching happens after hydration happens. 
 
-### 2. Prefetching:
-Happens before navigation (background optimization). 
+Note: for example if we have a navbar: 
+- If the navbar is server component prefetch happens when the navbar enters the viewport or when hover the links
+- If the navbar is client component prefetch happens when the navbar is fully hydrate
 
-When we use:
-
-```tsx
-import Link from "next/link"
-
-<Link href="/dashboard" />
-```
-
-Next.js automatically:
-
-- Prefetches RSC payload
-- Prefetches required JS chunks
-- Stores them in router cache
-
-When does prefetch happen:
-- When `<Link />` enters the viewport
-- On hover (in some cases)
-
-Why it matters:
-- When user clicks:
-  - Data is already cached
-  - No waiting for server
-  - Navigation feels instant
-
-### 3. Streaming:
+2. Streaming (Only For Server Components):
 Streaming allows the server to send UI in chunks (parts) by the help of react `<Suspense>` instead of waiting for everything.
 
 ```tsx
@@ -1585,7 +1559,6 @@ Streaming allows the server to send UI in chunks (parts) by the help of react `<
   <SlowDataComponent />
 </Suspense>
 ```
-
 or you can just create a loading.tsx in your route folder:
 
 ![image]('./assets/images/linking-and-navigating/loading-special-file.avif')
@@ -1597,141 +1570,118 @@ export default function Loading() {
 }
 ```
 
-Behind the scenes, Next.js will automatically wrap the page.tsx contents in a <Suspense> boundary. The prefetched fallback UI will be shown while the route is loading, and swapped for the actual content once ready.
+Behind the scenes, Next.js will automatically wrap the page.tsx contents in a `<Suspense>` boundary. The prefetched fallback UI will be shown while the route is loading, and swapped for the actual content once ready.
 
-Without streaming:
-- Server waits for ALL data → sends full response.
-
-With streaming: 
-- Server:
-  - Layout appears immediately.
-  - Fast components render first.
-  - Slow components render later.
-
-
-### 4. Client-side Transitions: 
-
+3. Client-side Transitions (For both server and client component): 
 Prevent Page Reload, because by default SSR need page reload for initial render.
 
-When User clicks `<Link />`:
-- Browser does NOT reload page.
-- Client requests only the new RSC payload.
-- Server renders changed route segments.
-- React merges new UI into existing tree.
-- Shared layouts stay mounted.
-- Only new Client Components hydrate.
+**Note:** Keep `<Link>` in server components for best performance, especially in layouts, navbars, and repeated menus. Use client components only when you need interactivity. 
 
-Key Result:
-- No full page refresh
-- Layout state preserved
-- SPA-like experience
-- Server still controls rendering
 
-Summary: Next.js App Router keeps navigation fast by combining:
-
-- Server-Side Rendering → returns HTML + RSC payload
-- Prefetching → Routes are preloaded in the background.
-- Streaming → UI loads in chunks.
-- Client-Side Transitions → No full reload, only changed parts update.
-
-### What can make transitions slow:
-
-#### 1. Dynamic routes without loading.tsx: 
-When navigating to a dynamic route, the client must wait for the server response before showing the result. This can give the users the impression that the app is not responding.
-
-We recommend adding loading.tsx to dynamic routes to enable partial prefetching, trigger immediate navigation, and display a loading UI while the route renders.
-
-#### 2. Dynamic segments without generateStaticParams: 
-In App Router, dynamic routes like: `app/blog/[slug]/page.tsx` can be rendered in two ways:
-- SSG / ISR (pre-rendered at build time or with revalidation) if we use `generateStaticParams`
-- Dynamic SSR (rendered on each request) if we don't use `generateStaticParams`
+**Example:** 
 
 ```tsx
-export async function generateStaticParams() {
-  const posts = await fetch('https://.../posts').then((res) => res.json())
- 
-  return posts.map((post) => ({
-    slug: post.slug,
-  }))
-}
- 
-export default async function Page({
-  params,
-}: {
-  params: Promise<{ slug: string }>
-}) {
-  const { slug } = await params
-  // ...
-}
-```
+// app/components/Navbar.tsx (Server Component)
+import Link from "next/link";
+import ActiveLink from "./ActiveLinkClient";
 
-
-#### 3. Slow networks: 
-On slow or unstable networks, prefetching may not finish before the user clicks a link. This can affect both static and dynamic routes. In these cases, the `loading.js` fallback may not appear immediately because it hasn't been prefetched yet.
-
-To improve perceived performance, you can use the `useLinkStatus` hook to show immediate feedback while the transition is in progress.
-
-```tsx
-'use client'
- 
-import { useLinkStatus } from 'next/link'
- 
-export default function LoadingIndicator() {
-  const { pending } = useLinkStatus()
+export default function Navbar() {
   return (
-    <span aria-hidden className={`link-hint ${pending ? 'is-pending' : ''}`} />
-  )
+    <nav className="flex gap-4 p-4 bg-gray-100">
+      <ActiveLink href="/">Home</ActiveLink>
+      <ActiveLink href="/dashboard">Dashboard</ActiveLink>
+      <ActiveLink href="/profile">Profile</ActiveLink>
+    </nav>
+  );
 }
 ```
 
-Note: You can also "debounce" the hint by adding an initial animation delay (e.g. 100ms) and starting as invisible (e.g. opacity: 0). This means the loading indicator will only be shown if the navigation takes longer than the specified delay. See the useLinkStatus reference for a CSS example.
-
-#### 4. Disabling prefetching: 
-
-You can opt out of prefetching by setting the prefetch prop to false on the `<Link>` component. This is useful to avoid unnecessary usage of resources when rendering large lists of links (e.g. an infinite scroll table).
-
 ```tsx
-<Link prefetch={false} href="/blog">
-  Blog
-</Link>
-```
+// app/components/ActiveLinkClient.tsx (Client Component)
+"use client";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 
-However, disabling prefetching comes with trade-offs:
-- Static routes will only be fetched when the user clicks the link.
-- Dynamic routes will need to be rendered on the server first before the client can navigate to it.
+interface Props {
+  href: string;
+  children: React.ReactNode;
+}
 
-To reduce resource usage without fully disabling prefetch, you can prefetch only on hover. This limits prefetching to routes the user is more likely to visit, rather than all links in the viewport.
+export default function ActiveLink({ href, children }: Props) {
+  const pathname = usePathname();
+  const isActive = pathname === href;
+  // for nested pathname
+  // const isActive = pathname.startsWith("/dashboard");
 
-```tsx
-'use client'
- 
-import Link from 'next/link'
-import { useState } from 'react'
- 
-function HoverPrefetchLink({
-  href,
-  children,
-}: {
-  href: string
-  children: React.ReactNode
-}) {
-  const [active, setActive] = useState(false)
- 
   return (
     <Link
       href={href}
-      prefetch={active ? null : false}
-      onMouseEnter={() => setActive(true)}
+      className={`px-3 py-2 rounded ${
+        isActive ? "bg-blue-500 text-white" : "text-gray-700 hover:bg-gray-200"
+      }`}
     >
       {children}
     </Link>
-  )
+  );
 }
 ```
 
-#### 5. Hydration not completed: 
+### `useRouter()` (programmatic Navigation):
+For Programmatic Navigation like buttons, forms, or logic-based navigation.
 
-`<Link>` is a Client Component and must be hydrated before it can prefetch routes. On the initial visit, large JavaScript bundles can delay hydration, preventing prefetching from starting right away.
+```ts
+"use client";
+
+import { useRouter } from "next/navigation";
+
+export default function LoginButton() {
+  const router = useRouter();
+
+  const handleLogin = async () => {
+    // auth logic
+    router.push("/login");
+  };
+
+  return <button onClick={handleLogin}>Login</button>;
+}
+```
+
+Available methods: 
+
+```
+router.push("/path")       // navigate (adds to history stack)
+router.replace("/path")    // replace history (does not add to history)
+router.back()              // go back
+router.forward()           // go forward
+router.refresh()           // re-fetch server components
+router.prefetch("/path")   // prefetch route
+```
+
+### `redirect()` (Server Redirect): 
+
+```tsx
+import { redirect } from "next/navigation";
+
+export default async function Page() {
+  const user = await getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  return <div>Dashboard</div>;
+}
+```
+
+### notFound() (Triggers nearest not-found.tsx):
+
+```tsx
+import { notFound } from "next/navigation";
+
+if (!data) {
+  notFound();
+}
+```
 
 # Cache Components: 
 A Cache Component is a Server Component whose result is cached by Next.js so it doesn’t re-render on every request.
