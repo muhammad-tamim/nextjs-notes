@@ -36,6 +36,7 @@
   - [Top-level Folders:](#top-level-folders)
   - [Top-level Files:](#top-level-files)
   - [Routing Files:](#routing-files)
+  - [Nested layouts and Multiple Root Layout:](#nested-layouts-and-multiple-root-layout)
   - [Nested Routes:](#nested-routes)
   - [Dynamic Routes:](#dynamic-routes)
   - [API Routes:](#api-routes)
@@ -46,10 +47,10 @@
     - [`useRouter()` (programmatic Navigation):](#userouter-programmatic-navigation)
     - [`redirect()` (Server Redirect):](#redirect-server-redirect)
     - [`notFound()` (Triggers nearest not-found.tsx):](#notfound-triggers-nearest-not-foundtsx)
+- [Params And SearchParams:](#params-and-searchparams)
 - [Metadata:](#metadata)
-    - [Global Metadata (Layout Level):](#global-metadata-layout-level)
-    - [Static Metadata:](#static-metadata)
-    - [Dynamic Metadata:](#dynamic-metadata)
+    - [Static and Dynamic MetaData](#static-and-dynamic-metadata)
+    - [More about title:](#more-about-title)
 - [Image Optimization:](#image-optimization)
   - [Local images:](#local-images)
   - [Remote images:](#remote-images)
@@ -108,17 +109,16 @@ app/global.css:
 # Introduction: 
 
 ### What is Next.js: 
-Next.js is a React framework for building high-performance, SEO-optimized web applications. It extends React by providing structured routing, data fetching model, built-in backend capabilities, different types of optimization, and multiple rendering strategies within a single unified framework.
+Next.js is a React framework for building high-performance, SEO-optimized full stack web applications. It extends React by providing file-based routing, API Routes, Data Fetching model, Multiple Rendering, SEO/image/font optimization and many more within a single framework.
 
 ### Key Features of Next.js: 
-- Multiple rendering (CSR, SSR, SSG, ISR)
-- File-based routing system
+- Built-in File-based routing system
 - Built-in API routes 
-- Built-in Data Fetching: `getStaticProps`, `getServerSideProps`, `getStaticPaths`, `fetch` (for client components)
+- Multiple rendering (CSR, SSR, SSG, ISR)
+- Built-in Data Fetching models
 - Built-in SEO Optimization
 - Built-in Image and font Optimization
 - Built-in TS and Tailwind css support
-- Automatic Code Splitting: Only loads the JavaScript needed for each page, improving performance.
 
 
 ### Difference Between Library and Framework: 
@@ -787,15 +787,16 @@ Top-level files are configuration and metadata files located at the project root
 ## Routing Files:
 Routing files are special files that define how routes behave, what UI they render, and how errors/loading states are handled.
 
-| File           | Purpose                                                                                                                                     |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `layout`       | Defines a shared UI wrapper for a route segment and its nested routes                                                                       |
-| `page`         | Represents the primary UI for a route                                                                                                       |
-| `route`        | Defines server-side API handlers (e.g., GET, POST, PUT, DELETE).                                                                            |
-| `loading`      | Displays instant loading UI while a route segment is being streamed or data is being fetched. Automatically wrapped in a Suspense boundary. |
-| `not-found`    | 404 page UI when a route does not exist.                                                                                                    |
-| `error`        | Error UI for a specific route                                                                                                               |
-| `global-error` | Error UI for the entire app                                                                                                                 |
+| File           | Purpose                                                                                                                                                                                                                                            |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `layout`       | Defines a shared UI wrapper for a route segment and its nested routes                                                                                                                                                                              |
+| `template`     | Defines a shared UI wrapper for a route segment and its nested routes similar to layout but it re-renders on navigation between sibling routes instead of being preserved. Useful when you need state reset or re-running effects on route change. |
+| `page`         | Represents the primary UI for a route                                                                                                                                                                                                              |
+| `route`        | Defines server-side API handlers (e.g., GET, POST, PUT, DELETE).                                                                                                                                                                                   |
+| `loading`      | Displays instant loading UI while a route segment is being streamed or data is being fetched. Automatically wrapped in a Suspense boundary.                                                                                                        |
+| `not-found`    | 404 page UI when a route does not exist.                                                                                                                                                                                                           |
+| `error`        | Error UI for a specific route                                                                                                                                                                                                                      |
+| `global-error` | Error UI for the entire app                                                                                                                                                                                                                        |
 
 
 **Example:**
@@ -814,6 +815,9 @@ src/
       │     ├── loading.tsx
       │     ├── error.tsx
       │     └── not-found.tsx
+      ├── products/[productId]
+      │     ├── page.tsx
+      │
       └── api/
             └── hello/
                   └── route.ts
@@ -937,9 +941,7 @@ export default function NotFound() {
 
 import { notFound } from "next/navigation";
 
-export default async function DashboardPage() {
-    // forcefully want 2 sec for showing loading spinner
-    await new Promise((res) => setTimeout(res, 2000));
+export default function DashboardPage() {
 
     // if you want forcefully render notFound(), then make it true
     const shouldNotExist = false;
@@ -952,6 +954,28 @@ export default async function DashboardPage() {
         <div>
             <h1>Dashboard Page</h1>
             <p>This is /dashboard route.</p>
+        </div>
+    );
+}
+```
+
+```tsx
+// here, we next.js automatically show root not-found page, because we don't have not-found component for this product url
+// src/app/products/[productId]/page.tsx
+
+import { notFound } from "next/navigation";
+
+export default async function productDetailsPage({params}: {params: Promise<productId: string>}) {
+  
+    const {productId} = await params
+
+    if (productId >= 1000) { // we sure that we don't have product more than 1000
+        notFound();
+    }
+
+    return (
+        <div>
+            <p>This is product details page.</p>
         </div>
     );
 }
@@ -1009,6 +1033,288 @@ export async function GET() {
     return NextResponse.json({
         message: "Hello from API Route",
     });
+}
+```
+
+**Template Example:**
+
+- Without template: 
+
+```
+app/
+ ├─ dashboard/
+ │   ├─ layout.tsx
+ │   ├─ page.tsx
+ │   └─ settings/
+ │       └─ page.tsx
+ ├─ page.tsx
+ └─ layout.tsx
+```
+
+For now if we navigate between /dashboard and /dashboard/settings, the state does not reset. Because layout is persistent by default. It does not unmount when navigating between sibling routes under the same segment.
+
+![image](./assets/gifs/Folder-and-file-conventions/without-template.gif)
+
+```tsx
+// src/app/layout.tsx
+
+import type { Metadata } from "next";
+import "./globals.css";
+import Link from "next/link";
+
+
+export const metadata: Metadata = {
+  title: "Create Next App",
+  description: "Generated by create next app",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body className="bg-green-100">
+        <nav className="flex gap-10">
+          <Link href={'/'}>Home</Link>
+          <Link href={'/dashboard'}>Dashboard</Link>
+        </nav>
+        {children}
+      </body>
+    </html>
+  );
+}
+```
+
+```tsx
+// src/app/page.tsx
+
+export default function Home() {
+  return (
+    <div>
+      Home Page
+    </div>
+  );
+}
+```
+
+```tsx
+// app/dashboard/layout.tsx
+
+"use client"
+
+import Link from 'next/link';
+import React, { useState } from 'react'
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+    const [count, setCount] = useState(0);
+    const [input, setInput] = useState("")
+
+    return (
+        <div className='bg-red-100 text-center space-y-5'>
+            <h1>Dashboard Layout</h1>
+
+            <nav className='flex gap-10 justify-center'>
+                <Link href="/dashboard">Dashboard Home</Link>
+                <Link href="/dashboard/setting">Settings</Link>
+            </nav>
+
+            <button className='btn' onClick={() => setCount((prev) => prev + 1)}>
+                Count: {count}
+            </button>
+            <input type="text" className='input' value={input} onChange={(e) => setInput(e.target.value)} />
+
+
+            {children}
+        </div>
+    )
+}
+```
+
+```tsx
+// app/dashboard/page.tsx
+
+import React from 'react'
+
+export default function DashboardHomePage() {
+    return (
+        <div>I am Dashboard Home Page</div>
+    )
+}
+```
+
+```tsx
+// app/dashboard/settings/page.tsx
+
+import React from 'react'
+
+export default function SettingPage() {
+    return (
+        <div>Dashboard setting page</div>
+    )
+}
+```
+
+
+- With template: 
+
+But if we use template and navigate between /dashboard and /dashboard/settings, the state inside the template is reset. Because template is re-mounted on every navigation between sibling routes.
+
+![image](./assets/gifs/Folder-and-file-conventions/with-template.gif)
+
+
+```tsx
+// app/dashboard/layout.tsx
+
+import Link from 'next/link';
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+    return (
+        <div className='bg-red-100 text-center space-y-5'>
+            <h1>Dashboard Layout</h1>
+
+            <nav className='flex gap-10 justify-center'>
+                <Link href="/dashboard">Dashboard Home</Link>
+                <Link href="/dashboard/setting">Settings</Link>
+            </nav>
+
+
+            {children}
+        </div>
+    )
+}
+```
+
+```tsx
+// app/dashboard/template.tsx
+
+"use client"
+
+import React, { useState } from 'react'
+
+export default function DashboardTemplate({ children }: { children: React.ReactNode }) {
+    const [count, setCount] = useState(0);
+    const [input, setInput] = useState("")
+
+    return (
+        <div className='bg-red-100 text-center space-y-5'>
+            <h1>Dashboard Template</h1>
+
+            <button className='btn' onClick={() => setCount((prev) => prev + 1)}>
+                Count: {count}
+            </button>
+            <input type="text" className='input' value={input} onChange={(e) => setInput(e.target.value)} />
+
+
+            {children}
+        </div>
+    )
+}
+```
+
+Note: If you used layout and temple for a same url path, then the template works as a children of layout.
+
+![alt text](./assets/images/Folder-and-file-conventions/layout-and-template.png)
+
+## Nested layouts and Multiple Root Layout: 
+
+- Nested Layouts: 
+
+```tsx
+// src/app/layout.tsx
+
+import type { Metadata } from "next";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "Create Next App",
+  description: "Generated by create next app",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body>
+        <nav>Navbar</nav>
+        {children}
+        <footer>Footer</footer>
+      </body>
+    </html>
+  );
+}
+```
+
+```tsx
+// src/app/product/layout.tsx
+
+import React from 'react'
+
+export default function ProductLayout({ children }: { children: React.ReactNode }) {
+    return (
+        <div>
+            <nav>Navbar for product layout</nav>
+            {children}
+            <footer>Footer for Product Layout</footer>
+        </div>
+    )
+}
+```
+
+Note: Root layout must have `<html>` and `<body>` tag
+
+- Multiple Root Layout: 
+
+![alt text](./assets/images/Folder-and-file-conventions/multiple-root-layout.png)
+
+```tsx
+// src/app/(marketing)/layout.tsx
+
+import type { Metadata } from "next";
+import '@/app/globals.css'
+
+export const metadata: Metadata = {
+    title: "Create Next App",
+    description: "Generated by create next app",
+};
+
+export default function RootLayout({
+    children,
+}: Readonly<{
+    children: React.ReactNode;
+}>) {
+    return (
+        <html lang="en">
+            <body>
+                <nav>Navbar</nav>
+                {children}
+                <footer>Footer</footer>
+            </body>
+        </html>
+    );
+}
+```
+
+```tsx
+// src/app/(auth)/layout.tsx
+
+import React from 'react'
+import '@/app/globals.css'
+
+export default function AuthLayout({ children }: { children: React.ReactNode }) {
+    return (
+        <html>
+            <body>
+                <p>No Navbar</p>
+                {children}
+                <p>No Footer</p>
+            </body>
+        </html>
+    )
 }
 ```
 
@@ -1079,7 +1385,7 @@ blog/[slug]/page.tsx
 /blog/2024/post-1   
 ```
 
-Example: 
+Example-1: 
 
 ```tsx
 // app/blog/[slug]/page.tsx
@@ -1099,6 +1405,78 @@ export default async function BlogPostPage({ params }: PageProps) {
     )
 }
 ```
+
+Example 2: Nested Dynamic Route Segment:
+
+![alt text](./assets/images/Folder-and-file-conventions/dynamic-routes-matches-1-nested-example.png)
+
+```
+src/app/products/page.tsx
+src/app/products/[productId]/page.tsx
+src/app/products/[productId]/reviews/page.tsx
+src/app/products/[productId]/reviews/[reviewId]/page.tsx
+
+http://localhost:3000/products --> Welcome to all products page
+http://localhost:3000/products/1 --> Product 1 Details 
+http://localhost:3000/products/1/reviews --> Welcome to product 1 all reviews page
+http://localhost:3000/products/1/reviews/1 --> review 1 for product 1 
+```
+
+```tsx
+// src/app/products/page.tsx
+
+import React from 'react'
+
+export default function AllProductsPage() {
+    return (
+        <div>Welcome to the all products page</div>
+    )
+}
+```
+
+```tsx
+// src/app/products/[productId]/page.tsx
+
+import React from 'react'
+
+export default async function ProductDetailsPage({ params }: { params: Promise<{ productId: string }> }) {
+    const productId = (await params).productId
+    return (
+        <div>Product {productId} Details</div>
+    )
+}
+```
+
+```tsx
+// src/app/products/[productId]/reviews/page.tsx
+
+import React from 'react'
+
+export default async function ProductReviews({params}: {params: Promise<{productId: string}>}) {
+    const {productId} = await params
+    return (
+        <div>Welcome to product {productId}  all reviews page</div>
+    )
+}
+```
+
+```tsx
+// src/app/products/[productId]/reviews/[reviewId]/page.tsx
+
+import React from 'react'
+
+export default async function ProductReviewPage({
+    params
+}: {
+    params: Promise<{ productId: string, reviewId: string }>
+}) {
+    const { productId, reviewId } = await params
+    return (
+        <div>review {reviewId} for product {productId} </div>
+    )
+}
+```
+
 
 2. [...slug] — Matches 1 or more URL segments.
 
@@ -1121,11 +1499,7 @@ Example:
 ```tsx
 // app/docs/[...slug]/page.tsx
 
-type PageProps = {
-    params: Promise<{ slug: string[] }>
-}
-
-export default async function DocsPage({ params }: PageProps) {
+export default async function DocsPage({ params }: {params: Promise<{ slug: string[] }>}) {
     const { slug } = await params
     // if you enter http://localhost:3000/docs/react/hooks/use-effect
     console.log(slug) // [ 'react', 'hooks', 'use-effect' ]
@@ -1506,7 +1880,6 @@ Prevent Page Reload, because by default SSR need page reload for initial render.
 
 ```tsx
 // app/components/Navbar.tsx (Server Component)
-import Link from "next/link";
 import ActiveLink from "./ActiveLinkClient";
 
 export default function Navbar() {
@@ -1533,7 +1906,7 @@ interface Props {
 
 export default function ActiveLink({ href, children }: Props) {
   const pathname = usePathname();
-  const isActive = pathname === href;
+  const isActive = pathname === href || (pathname.startsWith("href")) && href !== '/';
   // for nested pathname
   // const isActive = pathname.startsWith("/dashboard");
 
@@ -1607,8 +1980,135 @@ if (!data) {
 }
 ```
 
+# Params And SearchParams: 
+
+```tsx
+"use client";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
+
+interface Props {
+    href: string;
+    children: React.ReactNode;
+}
+
+export default function ActiveLink({ href, children }: Props) {
+    const pathname = usePathname();
+    const isActive = pathname === href || pathname.startsWith(href) && href !== '/';
+
+    return (
+        <Link
+            href={href}
+            className={`px-3 py-2 rounded ${isActive ? "bg-blue-500 text-white" : "text-gray-700 hover:bg-gray-200"
+                }`}
+        >
+            {children}
+        </Link>
+    );
+}
+```
+
+```tsx
+// src/app/components/navbar.tsx
+
+import ActiveLink from "./ActiveLinkClient";
+
+export default function Navbar() {
+    return (
+        <nav className="flex gap-4 p-4 bg-gray-100">
+            <ActiveLink href="/">Home</ActiveLink>
+            <ActiveLink href="/dashboard">Dashboard</ActiveLink>
+            <ActiveLink href="/about">About</ActiveLink>
+            <ActiveLink href="/articles/breaking-news-123?lang=en">Read in English</ActiveLink>
+            <ActiveLink href="/articles/breaking-news-123?lang=fr">Read in France</ActiveLink>
+        </nav>
+    );
+}
+```
+
+
+```tsx
+// src/app/articles/[articleId]/page.tsx
+
+import Link from 'next/link'
+import React from 'react'
+
+export default async function NewsArticle({ params, searchParams }: {
+    params: Promise<{ articleId: string }>
+    searchParams: Promise<{ lang: 'en' | "sp" | 'fr' }>
+}) {
+    const { articleId } = await params
+    const { lang } = await searchParams
+    return (
+        <div>
+            <h1>News Article ID: {articleId}</h1>
+            <p>Reading In Language: {lang}</p>
+
+            <p className='mt-5'>Switch Language</p>
+            <div className='flex gap-2 items-center'>
+                <Link href={`/articles/${articleId}?lang=en`} className='text-blue-500'>English</Link>
+                <Link href={`/articles/${articleId}?lang=sp`} className='text-blue-500'>Spanish</Link>
+                <Link href={`/articles/${articleId}?lang=fr`} className='text-blue-500'>French</Link>
+            </div>
+        </div>
+    )
+}
+```
+
+here, 
+
+- params 
+
+```
+href='/'
+href='/dashboard'
+```
+- SearchParams
+
+```
+href="/articles/breaking-news-123?lang=en"
+href="/articles/breaking-news-123?lang=fr"
+```
+
+
+
+**Note:** we can't use params and search params directly in the client component, for that we need to use react `use` hook: 
+
+```tsx
+// src/app/articles/[articleId]/page.tsx
+
+'use client'
+
+import Link from 'next/link'
+import React, { use } from 'react'
+
+export default function NewsArticle({ params, searchParams }: {
+    params: Promise<{ articleId: string }>
+    searchParams: Promise<{ lang: 'en' | "sp" | 'fr' }>
+}) {
+    const { articleId } = use(params)
+    const { lang } = use(searchParams)
+    return (
+        <div>
+            <h1>News Article ID: {articleId}</h1>
+            <p>Reading In Language: {lang}</p>
+
+            <p className='mt-5'>Switch Language</p>
+            <div className='flex gap-2 items-center'>
+                <Link href={`/articles/${articleId}?lang=en`} className='text-blue-500'>English</Link>
+                <Link href={`/articles/${articleId}?lang=sp`} className='text-blue-500'>Spanish</Link>
+                <Link href={`/articles/${articleId}?lang=fr`} className='text-blue-500'>French</Link>
+            </div>
+        </div>
+    )
+}
+```
+
+
 # Metadata: 
 Metadata is information about a web page that browsers, search engines, and social platforms use to understand the page. It defines on the HTML `<head>` tag. There are lots of properties available in metadata, but title, description, robots, Open Graph, and Twitter cover most real-world use cases. Everything else is optional.
+
+**Note:** both page.tsx and layout.tsx can export metadata, but layout meta data applies to all its pages while page metadata is specific to that page. 
 
 ```ts
 export const metadata: Metadata = {
@@ -1652,7 +2152,121 @@ here,
 
 Note: A link preview is the small summary that social platforms show when you share a URL. It usually contains a title, description, and image, so people get an idea of what the page is about without clicking the link.
 
-### Global Metadata (Layout Level): 
+### Static and Dynamic MetaData
+
+- Static
+
+```tsx
+// src/app/layout.tsx
+
+import type { Metadata } from "next";
+import './globals.css'
+
+export const metadata: Metadata = {
+    title: "Home",
+    description: "Generated by create next app",
+};
+
+export default function RootLayout({
+    children,
+}: Readonly<{
+    children: React.ReactNode;
+}>) {
+    return (
+        <html lang="en">
+            <body>
+                <nav>Navbar</nav>
+                {children}
+                <footer>Footer</footer>
+            </body>
+        </html>
+    );
+}
+```
+
+![alt text](./assets/images/metadata/metadata-1.png)
+
+```tsx
+// src/app/about/page.tsx
+
+import { Metadata } from 'next';
+import React from 'react'
+
+export const metadata: Metadata = {
+    title: "About Page",
+    description: "Generated by create next app",
+};
+
+
+export default function AboutPage() {
+    return (
+        <div>AboutPage</div>
+    )
+}
+```
+
+![alt text](./assets/images/metadata/metadata-2.png)
+
+- Dynamic:
+
+```tsx
+// src/app/products/[productId]/page.tsx
+
+import { Metadata } from 'next'
+import React from 'react'
+
+type Props = {
+    params: Promise<{ productId: string }>
+}
+
+export const generateMetadata = async ({ params }: Props): Promise<Metadata> => {
+    const { productId } = await params
+    return {
+        title: `Product ${productId}`
+    }
+}
+
+export default async function ProductDetails({ params }: Props) {
+    const { productId } = await params
+    return (
+        <div>ProductDetails for productId: {productId}</div>
+    )
+}
+```
+
+![alt text](./assets/images/metadata/metadata-3.png)
+
+
+or for real applications: 
+
+```tsx
+// src/app/products/[productId]/page.tsx
+
+import { Metadata } from 'next'
+import React from 'react'
+
+type Props = {
+    params: Promise<{ productId: string }>
+}
+
+export const generateMetadata = async ({ params }: Props): Promise<Metadata> => {
+    const { productId } = await params
+    const res = await fetch(`https://api.example.com/${productId}`)
+    const data = await res.json()
+    return {
+        title: data.title
+    }
+}
+
+export default async function ProductDetails({ params }: Props) {
+    const { productId } = await params
+    return (
+        <div>ProductDetails for productId: {productId}</div>
+    )
+}
+```
+
+### More about title: 
 
 ```ts
 // app/layout.tsx
@@ -1667,55 +2281,61 @@ export const metadata: Metadata = {
   description: 'Full-stack developer portfolio',
 }
 ```
+
 **Shows as:** page with title: Title | Tamim Dev, if no title then: Tamim Dev
 
-
-### Static Metadata:
-
 ```tsx
-// app/page.tsx
+// app/about/page.tsx
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Home',
-  description: 'This is my homepage',
+  title: 'about',
 }
 
-export default function HomePage() {
-  return <h1>Home</h1>
+export default function AboutPage() {
+  return <h1>About Page</h1>
 }
 ```
-**shows as:** Home | Tamim Dev
+**shows as:** About | Tamim Dev
 
-### Dynamic Metadata: 
 
 ```tsx
 // app/blog/[slug]/page.tsx
 import type { Metadata } from 'next'
 
 type Props = {
-  params: { slug: string }
+    params: Promise<{ productId: string }>
 }
 
-export async function generateMetadata(
-  { params }: Props
-): Promise<Metadata> {
-
-  const res = await fetch(`https://api.example.com/posts/${params.slug}`)
-  const post = await res.json()
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const res = await fetch(`https://api.example.com/${params.slug}`)
+  const data = await res.json()
 
   return {
-    title: post.title,
-    description: post.excerpt,
+    title: data.title,
   }
 }
 
-export default async function BlogDetails({ params }: Props) {
-  return <div>{params.slug}</div>
+export default async function BlogDetails({ params }: {params: { slug: string }}) {
+  const {slug} = await params
+  return <div>Details page for: {slug}</div>
 }
 ```
 
 **shows as:** slug | Tamim Dev
+
+
+Note: if we want to override the the title. For that case we can use: 
+
+```ts
+export const metadata: Metadata = {
+  title:{
+    absolute: "Something"
+  }
+}
+```
+
+**shows as:** Something not Somethings | Tamim Dev
 
 # Image Optimization: 
 The Next.js `<Image>` component extends the HTML `<img>` element to provide:
