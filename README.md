@@ -41,6 +41,7 @@
   - [Nested Routes:](#nested-routes)
   - [Dynamic Routes:](#dynamic-routes)
   - [Parallel Routes:](#parallel-routes)
+  - [Unmatched Routes:](#unmatched-routes)
   - [API Routes:](#api-routes)
   - [Route Groups:](#route-groups)
   - [Private Folders:](#private-folders)
@@ -1712,9 +1713,7 @@ export default function DashboardLayout({
 With parallel routes, we can achieve the same UI but with several advantages, like: 
 
 - Independent loading and error handling 
-  ![alt text](image.png)
-- sub-navigation
-  ![alt text](image-1.png)
+  ![alt text](./assets/images/Folder-and-file-conventions/independent-loading-error.png)
 
 ```
 src/app/
@@ -1764,6 +1763,45 @@ export default function DashboardLayout(
 
 Note: In most cases, normal routes are enough; parallel routes are used only when multiple route segments need to render simultaneously.but we can use 
 
+## Unmatched Routes:
+In parallel routes, when navigating to a route inside one slot, the other slots may not have a matching route for that URL. These slots become unmatched.
+
+For example: If we navigate to `/dashboard/notifications/archive` then the notifications slot has a matching route (archive/page.tsx), but the other slots (@userAnalytics and @revenueMetrics) do not have a route for this path. 
+
+![alt text](./assets/images/Folder-and-file-conventions/unmatched-routes.png)
+
+```
+src/app/
+  dashboard/
+    page.tsx
+    layout.tsx
+      @userAnalytics/page.tsx
+      @revenueMetrics/page.tsx
+      @notification/page.tsx
+        archive/page.tsx
+```
+
+Now, When we reload the browser within the `/dashboard/notifications/archive`, Next.js tries to resolve every slot for the current URL since we have three slot here If a slot does not have a matching route (e,g,. `/dashboard/revenueMetrics/archive`,),  Next.js cannot determine what to render for that slot and it may result in a 404 error.
+
+To prevent this issue, we can provide a fallback UI for unmatched slots by creating a default.tsx file. so default.tsx acts as a fallback component when a slot does not match the current route.
+
+```
+src/app/
+  dashboard/
+    page.tsx
+    layout.tsx
+    default.tsx
+      @userAnalytics/
+        page.tsx
+        default.tsx
+      @revenueMetrics/
+        page.tsx
+        default.tsx
+      @notification/page.tsx
+        archive/page.tsx
+```
+
+Inside the default.tsx we can paste out page.tsx code for looks same as page.tsx when reload by `/dashboard/notifications/archive`
 
 ## API Routes: 
 API Routes in Next.js are built-in server endpoints that let you implement backend logic and database operations inside the same project, without needing a separate Express or Node server.
