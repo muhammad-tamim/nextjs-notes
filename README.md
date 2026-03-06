@@ -36,9 +36,11 @@
   - [Top-level Folders:](#top-level-folders)
   - [Top-level Files:](#top-level-files)
   - [Routing Files:](#routing-files)
+  - [Difference between template and layout:](#difference-between-template-and-layout)
   - [Nested layouts and Multiple Root Layout:](#nested-layouts-and-multiple-root-layout)
   - [Nested Routes:](#nested-routes)
   - [Dynamic Routes:](#dynamic-routes)
+  - [Parallel Routes:](#parallel-routes)
   - [API Routes:](#api-routes)
   - [Route Groups:](#route-groups)
   - [Private Folders:](#private-folders)
@@ -798,6 +800,7 @@ Routing files are special files that define how routes behave, what UI they rend
 | `error`        | Error UI for a specific route                                                                                                                                                                                                                      |
 | `global-error` | Error UI for the entire app                                                                                                                                                                                                                        |
 
+![alt text](./assets/images/Folder-and-file-conventions/component-hierarchy.png)
 
 **Example:**
 
@@ -879,7 +882,35 @@ export default function loading() {
 // src/app/error.tsx
 // For testing, Inside the page.tsx, temporarily add: `throw new Error("Test root error");`
 
+// "use client";
+
+// export default function Error({
+//     error,
+//     reset,
+// }: {
+//     error: Error;
+//     reset: () => void;
+// }) {
+//     return (
+//         <div>
+//             <h2>Something went wrong on this route.</h2>
+//             <p>{error.message}</p>
+//             <button onClick={() => reset()}>Try Again</button>
+//         </div>
+//     );
+// }
+```
+
+Note: Here, reset function only works for client component, however if we want to try again means re-render the both client and server component then we need to use `useRouter` and `startTransition`
+
+
+```tsx
+// src/app/error.tsx
+
 "use client";
+
+import {useRouter} from "next/navigation";
+import {startTransition} from "react"
 
 export default function Error({
     error,
@@ -888,15 +919,23 @@ export default function Error({
     error: Error;
     reset: () => void;
 }) {
+  const router = useRouter()
+  const reload = () => {
+    startTransition(() => {
+      router.refresh()
+      reset()
+    })
+  }
     return (
         <div>
             <h2>Something went wrong on this route.</h2>
             <p>{error.message}</p>
-            <button onClick={() => reset()}>Try Again</button>
+            <button onClick={reload}>Try Again</button>
         </div>
     );
 }
 ```
+
 
 ```tsx
 // src/app/global-error.tsx
@@ -1036,9 +1075,57 @@ export async function GET() {
 }
 ```
 
-**Template Example:**
+Note: For better error handling, Add Route-Specific Error Boundaries (error.tsx) for important routes. Because, 
 
-- Without template: 
+In Next.js, errors bubble up to the nearest parent error.tsx. If the current route does not have one, Next.js keeps moving up the route tree until it finds the closest error boundary (error.tsx).
+
+For Example: 
+
+```
+app
+ └─ products
+     ├─ error.tsx
+     ├─ product-details
+     │   └─ page.tsx
+     └─ reviews
+         └─ page.tsx
+```
+
+If an error happens in: `/products/reviews` and there is no reviews/error.tsx, the error will be caught by: `/products/error.tsx`. When that happens, the entire /products segment is replaced by the error UI, so sibling routes like: `/products/product-details` will also disappear and show the same error screen—even though they are not broken. So for best practice Add route-specific error.tsx files for critical pages to isolate failures.
+
+```
+app
+ └─ products
+     ├─ error.tsx
+     ├─ product-details
+     │   ├─ page.tsx
+     │   └─ error.tsx
+     └─ reviews
+         ├─ page.tsx
+         └─ error.tsx
+```
+
+Now an error in `/products/reviews` will only affect the reviews route, not the entire /products section.
+
+
+**Another Note:** We used both global.error.tsx and error.tsx for root url, because it have purpose, because if root layout fails, the error.tsx cannot capture it.
+
+| Error Location                     | File Used              |
+| ---------------------------------- | ---------------------- |
+| dashboard page fails               | `dashboard/error.tsx`  |
+| root page fails                    | `app/error.tsx`        |
+| root layout fails, error.tsx fails | `app/global-error.tsx` |
+
+```
+GlobalErrorBoundary (global-error.tsx)
+   └─ RootLayout
+        └─ ErrorBoundary (error.tsx)
+             └─ Page
+```
+
+Note: it's only works on production, for local development we may see next.js default error, but in product it works.
+
+## Difference between template and layout: 
 
 ```
 app/
@@ -1157,9 +1244,19 @@ export default function SettingPage() {
 ```
 
 
-- With template: 
-
 But if we use template and navigate between /dashboard and /dashboard/settings, the state inside the template is reset. Because template is re-mounted on every navigation between sibling routes.
+
+```
+app/
+ ├─ dashboard/
+ │   ├─ layout.tsx
+ │   ├─ template.tsx
+ │   ├─ page.tsx
+ │   └─ settings/
+ │       └─ page.tsx
+ ├─ page.tsx
+ └─ layout.tsx
+```
 
 ![image](./assets/gifs/Folder-and-file-conventions/with-template.gif)
 
@@ -1552,6 +1649,121 @@ export default async function ShopPage({ params }: PageProps) {
     )
 }
 ```
+
+## Parallel Routes:
+Parallel Routes allow multiple route segments to be rendered simultaneously inside the same layout using named slots (e.g., @userAnalytics).
+
+In a normal route, a layout renders only one active route segment through the children slot. When navigation occurs, the current page is replaced by another page in the same slot.
+
+In parallel routes, a layout can render multiple independent route segments at the same time by defining named slots (e.g., @analytics, @team). Each slot represents a separate route tree with its own loading state, error handling, and navigation behavior.
+
+Parallel routes do not change the main URL structure, because slots control UI composition rather than URL segments.
+
+Suppose we want to build a dashboard UI like this:
+
+![alt text](./assets/images/Folder-and-file-conventions/without-parallel-routes.png)
+
+We could build it without parallel routes like this:
+
+```
+src/app/
+  dashboard/
+    page.tsx
+    layout.tsx
+      userAnalytics/page.tsx
+      revenueMetrics/page.tsx
+      notification/page.tsx
+```
+
+```tsx
+// src/app/dashboard/layout.tsx
+
+// src/app/dashboard/layout.tsx
+
+import React from "react";
+import UserAnalyticsPage from "./userAnalytics/page";
+import RevenueMetricsPage from "./revenueMetrics/page";
+import NotificationPage from "./notifications/page";
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      {children}
+
+      <div className="flex items-center gap-5">
+        <div className="w-full space-y-1">
+          <UserAnalyticsPage />
+          <RevenueMetricsPage />
+        </div>
+
+        <div className="w-full">
+          <NotificationPage />
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+With parallel routes, we can achieve the same UI but with several advantages, like: 
+
+- Independent loading and error handling 
+  ![alt text](image.png)
+- sub-navigation
+  ![alt text](image-1.png)
+
+```
+src/app/
+  dashboard/
+    page.tsx
+    layout.tsx
+      @userAnalytics/page.tsx
+      @revenueMetrics/page.tsx
+      @notification/page.tsx
+```
+
+Note: Now they are not nested route, they all available to `/dashboard`, if we do `/dashboard/userAnalytics` we found 404. Also they are automatically passed as a props to the layout. 
+
+```tsx
+// src/app/dashboard/layout.tsx
+
+import React from 'react'
+
+export default function DashboardLayout(
+    {
+        children, userAnalytics, revenueMetrics, notifications
+    }: {
+        children: React.ReactNode;
+        userAnalytics: React.ReactNode;
+        revenueMetrics: React.ReactNode;
+        notifications: React.ReactNode;
+
+    }) {
+    return (
+        <div>
+            <div>
+                {children}
+                <div className='flex items-center gap-5'>
+                    <div className='w-full space-y-1'>
+                        <div>{userAnalytics}</div>
+                        <div>{revenueMetrics}</div>
+                    </div>
+                    <div className='w-full'>
+                        {notifications}
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+```
+
+Note: In most cases, normal routes are enough; parallel routes are used only when multiple route segments need to render simultaneously.but we can use 
+
 
 ## API Routes: 
 API Routes in Next.js are built-in server endpoints that let you implement backend logic and database operations inside the same project, without needing a separate Express or Node server.
@@ -2103,7 +2315,7 @@ export default function NewsArticle({ params, searchParams }: {
     )
 }
 ```
-
+ 
 
 # Metadata: 
 Metadata is information about a web page that browsers, search engines, and social platforms use to understand the page. It defines on the HTML `<head>` tag. There are lots of properties available in metadata, but title, description, robots, Open Graph, and Twitter cover most real-world use cases. Everything else is optional.
