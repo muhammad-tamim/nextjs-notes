@@ -46,6 +46,8 @@
   - [Intercepting Routes:](#intercepting-routes)
     - [Interception in parallel route:](#interception-in-parallel-route)
   - [API Routes:](#api-routes)
+    - [Handling CRUD:](#handling-crud)
+    - [Query Parameters:](#query-parameters)
   - [Route Groups:](#route-groups)
   - [Private Folders:](#private-folders)
 - [Linking and Navigating:](#linking-and-navigating)
@@ -1940,7 +1942,9 @@ app/
 [Click to see the code](./intercepted-route-example/)
 
 ## API Routes: 
-API Routes in Next.js are built-in server endpoints that let you implement backend logic and database operations inside the same project, without needing a separate Express or Node server.
+API Routes or Route Handlers in Next.js are built-in server endpoints that let you implement backend logic and database operations inside the same project, without needing a separate Express or Node server.
+
+### Handling CRUD: 
 
 ```tsx
 // src/lib/dbConnect.ts
@@ -2012,7 +2016,7 @@ export async function DELETE(req: NextRequest, { params }: PageProps) {
 
 export async function PATCH(req: NextRequest, { params }: PageProps) {
     const p = await params
-    const updatedData = req.json()
+    const updatedData = await req.json()
     const filter = { _id: new ObjectId(p.id) }
     const updatedData = {
       $set: {
@@ -2022,6 +2026,32 @@ export async function PATCH(req: NextRequest, { params }: PageProps) {
     const result = dbConnect("itemsCollection").updateOne(filter, updatedData)
 
     return Response.json(result)
+}
+```
+
+### Query Parameters: 
+
+```ts
+export async function GET(req: NextRequest) {
+
+    const searchParams = req.nextUrl.searchParams
+
+    const page = Number(searchParams.get("page")) 
+    const limit = Number(searchParams.get("limit")) 
+
+    const skip = (page - 1) * limit
+
+    const result = await dbConnect("itemsCollection")
+        .find({})
+        .skip(skip)
+        .limit(limit)
+        .toArray()
+
+    return Response.json({
+        page,
+        limit,
+        data: result
+    })
 }
 ```
 
