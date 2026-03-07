@@ -41,7 +41,10 @@
   - [Nested Routes:](#nested-routes)
   - [Dynamic Routes:](#dynamic-routes)
   - [Parallel Routes:](#parallel-routes)
-  - [Unmatched Routes:](#unmatched-routes)
+    - [Unmatched Routes:](#unmatched-routes)
+    - [Conditional Routes:](#conditional-routes)
+  - [Intercepting Routes:](#intercepting-routes)
+    - [Interception in parallel route:](#interception-in-parallel-route)
   - [API Routes:](#api-routes)
   - [Route Groups:](#route-groups)
   - [Private Folders:](#private-folders)
@@ -1763,7 +1766,7 @@ export default function DashboardLayout(
 
 Note: In most cases, normal routes are enough; parallel routes are used only when multiple route segments need to render simultaneously.but we can use 
 
-## Unmatched Routes:
+### Unmatched Routes:
 In parallel routes, when navigating to a route inside one slot, the other slots may not have a matching route for that URL. These slots become unmatched.
 
 For example: If we navigate to `/dashboard/notifications/archive` then the notifications slot has a matching route (archive/page.tsx), but the other slots (@userAnalytics and @revenueMetrics) do not have a route for this path. 
@@ -1802,6 +1805,139 @@ src/app/
 ```
 
 Inside the default.tsx we can paste out page.tsx code for looks same as page.tsx when reload by `/dashboard/notifications/archive`
+
+### Conditional Routes: 
+
+```
+src/app/
+  dashboard/
+    page.tsx
+    layout.tsx
+    default.tsx
+      @userAnalytics/
+        page.tsx
+        default.tsx
+      @revenueMetrics/
+        page.tsx
+        default.tsx
+      @notification/page.tsx
+        archive/page.tsx
+      @login/page.tsx
+```
+
+```tsx
+// src/app/dashboard/layout.tsx
+
+import React from 'react'
+
+export default function DashboardLayout(
+    {
+        children, userAnalytics, revenueMetrics, notifications, login
+    }: {
+        children: React.ReactNode;
+        userAnalytics: React.ReactNode;
+        revenueMetrics: React.ReactNode;
+        notifications: React.ReactNode;
+        login: React.ReactNode;
+    }) {
+    const isLogin = false
+    if (!isLogin) {
+        return login
+    }
+    return (
+        <div>
+            <div>
+                {children}
+                <div className='flex items-center gap-5'>
+                    <div className='w-full space-y-1'>
+                        <div>{userAnalytics}</div>
+                        <div>{revenueMetrics}</div>
+                    </div>
+                    <div className='w-full'>
+                        {notifications}
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+```
+
+## Intercepting Routes: 
+Intercepting Routes let you load a route inside the current layout instead of performing full navigation but when you refresh the page it's show the your destination page. It is commonly used for modals, side panels, previews, and overlays while keeping the background page visible.
+
+For example: Typical example: user is on /photos --> Clicks /photos/123 --> Instead of navigating away, the photo opens in a modal --> The URL still becomes /photos/123 --> when the page is re-fresh the /photos page is close and /photos/123 shown. Means for Normal navigation: The whole page changes. for Intercepting route navigation: Background page remains mounted unless refresh the page.
+
+- Folder Syntax: 
+
+| Syntax     | Meaning                                  |
+| ---------- | ---------------------------------------- |
+| `(.)`      | intercept route from **same level**      |
+| `(..)`     | intercept route from **one level above** |
+| `(..)(..)` | intercept from **two levels above**      |
+| `(...)`    | intercept from **root app folder**       |
+
+- Example: 
+
+```
+src/
+└── app/
+    ├── f1/
+    │   ├── page.tsx
+    │   │
+    │   ├── (.)f2/
+    │   │   └── page.tsx
+    │   │
+    │   ├── (..)f3/
+    │   │   └── page.tsx
+    │   │
+    │   └── f2/
+    │       ├── page.tsx
+    │       │
+    │       ├── (..)(..)f4/
+    │       │   └── page.tsx
+    │       │
+    │       └── inner-f2/
+    │           ├── page.tsx
+    │           │
+    │           └── (...)f5/
+    │               └── page.tsx
+    │
+    ├── f3/
+    │   └── page.tsx
+    │
+    ├── f4/
+    │   └── page.tsx
+    │
+    └── f5/
+        └── page.tsx
+```
+
+[Click to see the code](./intercepted-route-example/)
+  
+### Interception in parallel route: 
+
+```
+app/
+  layout.tsx
+  page.tsx
+
+  photos/
+    page.tsx
+    [id]/
+      page.tsx
+
+  @modal/
+    default.tsx
+    (.)photos/
+      [id]/
+        page.tsx
+        photoModal.tsx
+```
+
+![image](./assets/gifs/Folder-and-file-conventions/intercepting-with-parallel-route.gif)
+
+[Click to see the code](./intercepted-route-example/)
 
 ## API Routes: 
 API Routes in Next.js are built-in server endpoints that let you implement backend logic and database operations inside the same project, without needing a separate Express or Node server.
