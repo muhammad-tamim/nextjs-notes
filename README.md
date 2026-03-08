@@ -56,6 +56,9 @@
     - [`redirect()` (Server Redirect):](#redirect-server-redirect)
     - [`notFound()` (Triggers nearest not-found.tsx):](#notfound-triggers-nearest-not-foundtsx)
 - [Params And SearchParams:](#params-and-searchparams)
+- [Proxy (middleware):](#proxy-middleware)
+    - [Redirect:](#redirect)
+    - [Rewrite:](#rewrite)
 - [Metadata:](#metadata)
     - [Static and Dynamic MetaData](#static-and-dynamic-metadata)
     - [More about title:](#more-about-title)
@@ -2726,6 +2729,98 @@ export default function NewsArticle({ params, searchParams }: {
 }
 ```
  
+
+# Proxy (middleware): 
+Note: Starting with Next.js 16, Middleware is now called Proxy to better reflect its purpose. The functionality remains the same.
+
+Middleware is a function that runs between the request and the response. It have access to the request and response objects and can modify them or end the request-response cycle.
+
+```ts
+// src/proxy.ts
+
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+export function proxy(request: NextRequest) {
+  console.log("Middleware executed:", request.nextUrl.pathname);
+
+  return NextResponse.next();
+}
+```
+
+if we add matcher, then it only works that routes only: 
+
+```tsx
+// src/proxy.ts
+
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+export function proxy(request: NextRequest) {
+    console.log("Middleware executed:", request.nextUrl.pathname);
+
+    return NextResponse.next();
+}
+
+export const config = {
+    matcher: '/photos'
+}
+```
+
+or we can write conditions manually without using matcher, 
+
+```tsx
+// src/proxy.ts
+
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+export function proxy(request: NextRequest) {
+
+    if (request.nextUrl.pathname === '/photos') {
+        console.log("Middleware executed:", request.nextUrl.pathname);
+        return NextResponse.next();
+    }
+}
+```
+
+### Redirect: 
+
+```tsx
+// src/proxy.ts
+
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+export function proxy(request: NextRequest) {
+  const token = request.cookies.get("token");
+
+  if (!token) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  return NextResponse.next();
+}
+```
+
+### Rewrite: 
+
+```tsx
+// src/proxy.ts
+
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+export function proxy(request: NextRequest) {
+
+    if (request.nextUrl.pathname === '/profile') {
+        return NextResponse.rewrite(new URL('/dashboard/user-profile', request.nextUrl));
+    }
+
+}
+```
+
+now, if User visit `/profile`, next.js redirect it to the `/dashboard/user-profile` without effecting the url, means the url stay `/profile` but next.js serves `/dashboard/user-profile`.
 
 # Metadata: 
 Metadata is information about a web page that browsers, search engines, and social platforms use to understand the page. It defines on the HTML `<head>` tag. There are lots of properties available in metadata, but title, description, robots, Open Graph, and Twitter cover most real-world use cases. Everything else is optional.

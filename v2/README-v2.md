@@ -37,7 +37,6 @@
   - [revalidateTag:](#revalidatetag-1)
   - [updateTag:](#updatetag-1)
   - [revalidatePath:](#revalidatepath)
-- [Proxy:](#proxy)
 
 
 # Cache Components: 
@@ -925,41 +924,3 @@ export async function updateUser(id: string) {
 
 
 
-# Proxy: 
-Note: Starting with Next.js 16, Middleware is now called Proxy to better reflect its purpose. The functionality remains the same.
-
-Proxy allows you to run code before a request is completed. Then, based on the incoming request, you can modify the response by rewriting, redirecting, modifying the request or response headers, or responding directly.
-
-Some common scenarios where Proxy is effective include:
-- Modifying headers for all pages or a subset of pages
-- Rewriting to different pages based on A/B tests or experiments
-- Programmatic redirects based on incoming request properties
-
-For simple redirects, consider using the redirects configuration in next.config.ts first. Proxy should be used when you need access to request data or more complex logic.
-
-Proxy is not intended for slow data fetching. While Proxy can be helpful for optimistic checks such as permission-based redirects, it should not be used as a full session management or authorization solution.
-
-Using fetch with options.cache, options.next.revalidate, or options.next.tags, has no effect in Proxy.
-
-Create a proxy.ts (or .js) file in the project root, or inside src if applicable, so that it is located at the same level as pages or app.
-
-```ts
-// proxy.ts
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
- 
-// This function can be marked `async` if using `await` inside
-export function proxy(request: NextRequest) {
-  return NextResponse.redirect(new URL('/home', request.url))
-}
- 
-// Alternatively, you can use a default export:
-// export default function proxy(request: NextRequest) { ... }
- 
-export const config = {
-  matcher: '/about/:path*',
-}
-```
-The matcher config allows you to filter Proxy to run on specific paths. See the Matcher documentation for more details on path matching.
-
-  
