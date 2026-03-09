@@ -13,10 +13,14 @@
         - [`<Suspence>` vs `loading.tsx`](#suspence-vs-loadingtsx)
 - [Next.js Renderings:](#nextjs-renderings)
   - [1. Client Side Rendering(CSR):](#1-client-side-renderingcsr)
-  - [2. Server Side Rendering(SSR):](#2-server-side-renderingssr)
-  - [3. Static Site Generation(SSG):](#3-static-site-generationssg)
+  - [2. Server Side Rendering(SSR) Or Dynamic Rendering:](#2-server-side-renderingssr-or-dynamic-rendering)
+  - [3. Static Site Generation(SSG) Or Static Rendering:](#3-static-site-generationssg-or-static-rendering)
   - [4. Incremental Static Regeneration(ISR):](#4-incremental-static-regenerationisr)
   - [Difference Between CSR, SSR, SSG, ISR:](#difference-between-csr-ssr-ssg-isr)
+  - [Fetch API Different Rendering Behavior on Next.js:](#fetch-api-different-rendering-behavior-on-nextjs)
+    - [Static Rendering (SSG) with Fetch:](#static-rendering-ssg-with-fetch)
+    - [Dynamic Rendering (SSR) with Fetch:](#dynamic-rendering-ssr-with-fetch)
+    - [Incremental Static Regeneration (ISR) with Fetch:](#incremental-static-regeneration-isr-with-fetch)
 - [Folder and File Conventions:](#folder-and-file-conventions)
   - [Top-level Folders:](#top-level-folders)
   - [Top-level Files:](#top-level-files)
@@ -357,7 +361,7 @@ export default function CSRPage() {
 **When to use:**
 - Only for UI interactivity purpose (e.g., likes, comments, forms etc)
 
-## 2. Server Side Rendering(SSR): 
+## 2. Server Side Rendering(SSR) Or Dynamic Rendering: 
 
 **LifeCycle of SSR in Next.js:**
 
@@ -374,9 +378,8 @@ export default function CSRPage() {
     - Hydrate Client Components
 - The page becomes fully interactive
 
-
 **Note:** 
-- The RSC payload helps React understand the Server Component tree and where Client Components should be mounted.
+- **RSC payload** is a special JSON/serialized format that represents the Server Component tree and their props for the client. It tells React which Client Components to render, where to mount them, and with what data, while the server-rendered HTML is already in the page.
 - **Hydration** is the process where React attaches JavaScript logic (event handlers, state, and component behavior) to the HTML that was pre-rendered on the server for making the page fully interactive in the browser. 
 - Server Components never hydrate, they only render HTML 
 - If there are no Client Components, only these steps happen:
@@ -385,6 +388,223 @@ export default function CSRPage() {
   - Server generates:
     - Pre-rendered HTML
     - RSC payload (serialized instructions describing the component tree) 
+
+
+```tsx
+// app/dynamic-by-cookie/page.tsx
+import { cookies } from "next/headers"
+
+export default function CookieBasedPage() {
+  const cookieStore = cookies()
+  const sessionId = cookieStore.get("sessionId")?.value ?? "guest"
+  const time = new Date().toISOString()
+
+  return (
+    <div>
+      <h1>Cookie-Based Page</h1>
+      <p>User: {sessionId}</p>
+      <p>Rendered at: {time}</p>
+    </div>
+  )
+}
+```
+
+Note: if we used any of these (cookies(), headers(), connections(), draftMode(), after(), searchParams) to our server component, the rendering method will be moved from Static to Dynamic
+
+```tsx
+// app/posts/[id]/page.tsx
+// here if we provides all id's by generateStaticParams, then the page become SSG (Static rendering)
+
+type PageProps = {
+  params: { id: string }
+}
+
+export default function PostPage({ params }: PageProps) {
+  const time = new Date().toISOString()
+
+  return (
+    <div>
+      <h1>Post {params.id}</h1>
+      <p>Rendered at: {time}</p>
+    </div>
+  )
+}
+```
+
+
+**Problem with SSR:**
+- Increased server loads because The server render pages for every request
+
+**When to use:**
+- This is next.js default, and we also used it almost every case unless we specifically need SSG or ISR
+
+## 3. Static Site Generation(SSG) Or Static Rendering: 
+Static Site Generation (SSG) means the React components are pre-rendered at build time, not per request. The server generates the HTML once during the build, and the same pre-rendered HTML is served for all requests
+
+In Next.js, we need to use getStaticProps() to fetch data at build time and can getStaticPaths() for dynamic routes that need pre-rendering.This approach is ideal for pages with data that doesn’t change often (blogs, marketing pages, docs, etc.).
+
+**LifeCycle of SSG:** 
+1. Build Time:
+   - Server executes React components
+   - Required data is fetched from APIs or databases
+   - HTML + RSC payload is generated for each page and stored as static files
+
+2. Request Time:
+   - Browser sends a request to the server or CDN
+   - Server/CDN returns:
+     - Cached pre-rendered HTML (includes references to CSS and JS bundles for Client Components if available)
+     - RSC payload
+- For Server Components:
+  - Browser parses HTML → content becomes visible immediately
+- For Client Components:
+- Browser downloads CSS and JS bundles
+- CSS is applied
+- JavaScript executes
+- React uses the RSC payload to:
+  - Reconstruct the component tree
+  - Hydrate Client Components
+- Page becomes fully interactive
+
+```tsx
+// app/static/page.tsx
+
+export default function StaticPage() {
+  const time = new Date().toISOString()
+
+  return (
+    <div>
+      <h1>Static Page</h1>
+      <p>Generated time: {time}</p>
+    </div>
+  )
+}
+```
+
+**Problems with SSG:** 
+- Content is fixed at build time, Requires rebuilding the app to update content (unless using ISR).
+
+**When to use SSG:** 
+- Used it where Content that rarely changes or we developer changes the content by coding.
+
+
+## 4. Incremental Static Regeneration(ISR): 
+Incremental Static Regeneration (ISR) is a feature in Next.js that combines the speed of SSG with the flexibility of SSR. With ISR, we can specify a revalidation time for each page, and Next.js will automatically regenerate the page in the background when a request comes in after the revalidation time has passed.
+
+**How to make a server component to ISR:**
+
+```tsx
+// app/isr-page/page.tsx
+
+export const revalidate = 60 // regenerate page every 60 seconds
+
+export default function ISRPage() {
+  const time = new Date().toISOString()
+
+  return (
+    <div>
+      <h1>ISR Page</h1>
+      <p>Generated time: {time}</p>
+    </div>
+  )
+}
+```
+
+**Problem With ISR:**
+- users may see slightly stale content until revalidate
+
+**When to use ISR:** 
+- used where you want Static performance with revalidation and where slightly stale content are not a concern
+
+## Difference Between CSR, SSR, SSG, ISR: 
+
+| Feature            | **CSR**                 | **SSR**                       | **SSG**                       | **ISR**                                                   |
+| ------------------ | ----------------------- | ----------------------------- | ----------------------------- | --------------------------------------------------------- |
+| **Where rendered** | Browser                 | Server per request            | Server at build               | Server at build + periodic updates                        |
+| **HTML sent**      | Mostly empty            | Fully rendered                | Fully rendered                | Fully rendered                                            |
+| **Data fetching**  | Client (`useEffect`)    | Server (`getServerSideProps`) | Build time (`getStaticProps`) | Build time + background (`getStaticProps` + `revalidate`) |
+| **Interactivity**  | Hydrates after JS loads | Hydrates after HTML           | Hydrates after HTML           | Hydrates after HTML                                       |
+| **Speed / FCP**    | Slower first paint      | Fast                          | Very fast                     | Very fast, updated in background                          |
+| **SEO**            | Poor                    | Good                          | Excellent                     | Excellent                                                 |
+| **Best use case**  | Interactive apps        | Dynamic pages                 | Static pages                  | Mostly static pages with occasional updates               |
+| **Server load**    | Low                     | Higher                        | Very low                      | Low                                                       |
+
+Summary: 
+- CSR → Server sends empty HTML → React builds UI
+- SSR → Server builds HTML per request → React hydrates
+- SSG → Server builds HTML at build time → React hydrates
+- ISR → Server builds HTML at build time + regenerates later → React hydrates
+
+
+
+## Fetch API Different Rendering Behavior on Next.js: 
+In Next.js App Router, the fetch function behaves differently from standard browser fetch. Next.js optimizes it for server components, adding caching, deduplication, and revalidation logic. Understanding this is key to predicting whether a page is SSG, SSR, or ISR.
+
+### Static Rendering (SSG) with Fetch: 
+
+```tsx
+// app/static-fetch/page.tsx
+
+type Post = {
+  id: number
+  title: string
+}
+
+export default async function StaticFetchPage() {
+  const res = await fetch("https://jsonplaceholder.typicode.com/posts")
+  const posts: Post[] = await res.json()
+
+  return (
+    <div>
+      <h1>Static Page (SSG)</h1>
+      {posts.slice(0, 5).map(post => (
+        <p key={post.id}>{post.title}</p>
+      ))}
+    </div>
+  )
+}
+```
+
+```tsx
+// For dynamic routes: 
+// app/ssg/[id]/page.tsx
+
+type Post = {
+  userId: number
+  id: number
+  title: string
+  body: string
+}
+
+type PageProps = {
+    params: Promise<{ id: string }>
+}
+
+export async function generateStaticParams() {
+  const res = await fetch("https://jsonplaceholder.typicode.com/posts")
+
+  const posts: Post[] = await res.json()
+
+  return posts.map(post => ({
+    id: post.id.toString()
+  }))
+}
+
+export default async function PostDetailsPage({ params }: PageProps) {
+  const res = await fetch(`https://jsonplaceholder.typicode.com/posts/${params.id}`)
+
+  const post: Post = await res.json()
+
+  return (
+    <div>
+      <h1>Post Details</h1>
+      <h2>{post.title}</h2>
+      <p>{post.body}</p>
+    </div>
+  )
+}
+```
+
+### Dynamic Rendering (SSR) with Fetch: 
 
 
 ```tsx
@@ -412,10 +632,6 @@ export default async function SSRPage() {
   )
 }
 ```
-
-Note: fetch function in next.js not the same fetch in react.js. Here, next.js optimize the fetch function so it can catch data. So, if the data not changes, next.js automatically chased the data by using fetch function. So for the same data, if we request again next.js don't fetch those data, next.js just give us the data by their catch. Here, we disabled the cache for just for describe the SSR behavior (render every request) thats it.
-
-but for below dynamic route example the fetch function could't cached, because it's dynamic:
 
 ```tsx
 // app/ssr/[id]/page.tsx
@@ -448,58 +664,28 @@ export default async function PostDetailsPage({ params }: PageProps) {
 }
 ```
 
-**Problem with SSR:**
-- Increased server loads because The server render pages for every request
+### Incremental Static Regeneration (ISR) with Fetch: 
 
-**When to use:**
-- This is next.js default, and we also used it almost every case unless we specifically need SSG or ISR
-
-## 3. Static Site Generation(SSG): 
-Static Site Generation (SSG) means the React components are pre-rendered at build time, not per request. The server generates the HTML once during the build, and the same pre-rendered HTML is served for all requests
-
-In Next.js, we need to use getStaticProps() to fetch data at build time and can getStaticPaths() for dynamic routes that need pre-rendering.This approach is ideal for pages with data that doesn’t change often (blogs, marketing pages, docs, etc.).
-
-**LifeCycle of SSG:** 
-1. Build Time:
-   - Server executes React components
-   - Required data is fetched from APIs or databases
-   - HTML + RSC payload is generated for each page and stored as static files
-
-2. Request Time:
-   - Browser sends a request to the server or CDN
-   - Server/CDN returns:
-     - Cached pre-rendered HTML (includes references to CSS and JS bundles for Client Components if available)
-     - RSC payload
-- For Server Components:
-  - Browser parses HTML → content becomes visible immediately
-- For Client Components:
-- Browser downloads CSS and JS bundles
-- CSS is applied
-- JavaScript executes
-- React uses the RSC payload to:
-  - Reconstruct the component tree
-  - Hydrate Client Components
-- Page becomes fully interactive
-
-
-**How to make a server component to SSG**
+- Using fetch level revalidation:
 
 ```tsx
-// app/ssg/page.tsx
+// app/isr/page.tsx
 
 type Post = {
   id: number
   title: string
 }
 
-export default async function SSGPage() {
-  const res = await fetch("https://jsonplaceholder.typicode.com/posts")
+export default async function ISRPage() {
+  const res = await fetch("https://jsonplaceholder.typicode.com/posts", {
+    next: { revalidate: 60 }
+  })
 
   const posts: Post[] = await res.json()
 
   return (
     <div>
-      <h1>SSG Page</h1>
+      <h1>ISR Page</h1>
       {posts.map(post => (
         <p key={post.id}>{post.title}</p>
       ))}
@@ -508,10 +694,10 @@ export default async function SSGPage() {
 }
 ```
 
-For dynamic routes: 
 
 ```tsx
-// app/ssg/[id]/page.tsx
+// For dynamic routes: 
+// app/isr/[id]/page.tsx
 
 type Post = {
   userId: number
@@ -521,29 +707,32 @@ type Post = {
 }
 
 type PageProps = {
-  params: {
-    id: string
-  }
+    params: Promise<{ slug: string }>
 }
 
+
 export async function generateStaticParams() {
-  const res = await fetch("https://jsonplaceholder.typicode.com/posts")
+  const res = await fetch("https://jsonplaceholder.typicode.com/posts", {
+    next: { revalidate: 60 }
+  })
 
   const posts: Post[] = await res.json()
 
   return posts.map(post => ({
-    id: post.id.toString()
+    id: post.id.toString(),
   }))
 }
 
 export default async function PostDetailsPage({ params }: PageProps) {
-  const res = await fetch(`https://jsonplaceholder.typicode.com/posts/${params.id}`)
+  const res = await fetch(`https://jsonplaceholder.typicode.com/posts/${params.id}`, {
+    next: { revalidate: 60 }
+  })
 
   const post: Post = await res.json()
 
   return (
     <div>
-      <h1>Post Details</h1>
+      <h1>Post Details (ISR)</h1>
       <h2>{post.title}</h2>
       <p>{post.body}</p>
     </div>
@@ -551,23 +740,7 @@ export default async function PostDetailsPage({ params }: PageProps) {
 }
 ```
 
-here, generateStaticPrams is the main worker function the make a from SSR to SSG, it's fetch all id and make a page SSG at build time.
-
-**Problems with SSG:** 
-- Content is fixed at build time, Requires rebuilding the app to update content (unless using ISR).
-
-**When to use SSG:** 
-- Used it where Content that rarely changes or we developer changes the content by coding.
-
-
-## 4. Incremental Static Regeneration(ISR): 
-Incremental Static Regeneration (ISR) is a feature in Next.js that combines the speed of SSG with the flexibility of SSR. With ISR, we can specify a revalidation time for each page, and Next.js will automatically regenerate the page in the background when a request comes in after the revalidation time has passed.
-
-**How to make a server component to ISR:**
-
-There are two ways to make a component ISR:
-
-1. Using route-level revalidation: 
+- Using route-level revalidation:
 
 ```tsx
 // app/isr/page.tsx
@@ -595,9 +768,9 @@ export default async function ISRPage() {
 }
 ```
 
-For dynamic routes: 
 
 ```tsx
+// For dynamic routes: 
 // app/isr/[id]/page.tsx
 
 export const revalidate = 60
@@ -640,108 +813,6 @@ export default async function PostDetailsPage({ params }: PageProps) {
   )
 }
 ```
-
-2. Using fetch level revalidation: 
-
-```tsx
-// app/isr/page.tsx
-
-type Post = {
-  id: number
-  title: string
-}
-
-export default async function ISRPage() {
-  const res = await fetch("https://jsonplaceholder.typicode.com/posts", {
-    next: { revalidate: 60 }
-  })
-
-  const posts: Post[] = await res.json()
-
-  return (
-    <div>
-      <h1>ISR Page</h1>
-      {posts.map(post => (
-        <p key={post.id}>{post.title}</p>
-      ))}
-    </div>
-  )
-}
-```
-
-For dynamic routes: 
-
-```tsx
-// app/isr/[id]/page.tsx
-
-type Post = {
-  userId: number
-  id: number
-  title: string
-  body: string
-}
-
-type PageProps = {
-  params: {
-    id: string
-  }
-}
-
-
-export async function generateStaticParams() {
-  const res = await fetch("https://jsonplaceholder.typicode.com/posts", {
-    next: { revalidate: 60 }
-  })
-
-  const posts: Post[] = await res.json()
-
-  return posts.map(post => ({
-    id: post.id.toString(),
-  }))
-}
-
-export default async function PostDetailsPage({ params }: PageProps) {
-  const res = await fetch(`https://jsonplaceholder.typicode.com/posts/${params.id}`, {
-    next: { revalidate: 60 }
-  })
-
-  const post: Post = await res.json()
-
-  return (
-    <div>
-      <h1>Post Details (ISR)</h1>
-      <h2>{post.title}</h2>
-      <p>{post.body}</p>
-    </div>
-  )
-}
-```
-
-**Problem With ISR:**
-- users may see slightly stale content until revalidate
-
-**When to use ISR:** 
-- used where you want Static performance with revalidation and where slightly stale content are not a concern
-
-## Difference Between CSR, SSR, SSG, ISR: 
-
-| Feature            | **CSR**                 | **SSR**                       | **SSG**                       | **ISR**                                                   |
-| ------------------ | ----------------------- | ----------------------------- | ----------------------------- | --------------------------------------------------------- |
-| **Where rendered** | Browser                 | Server per request            | Server at build               | Server at build + periodic updates                        |
-| **HTML sent**      | Mostly empty            | Fully rendered                | Fully rendered                | Fully rendered                                            |
-| **Data fetching**  | Client (`useEffect`)    | Server (`getServerSideProps`) | Build time (`getStaticProps`) | Build time + background (`getStaticProps` + `revalidate`) |
-| **Interactivity**  | Hydrates after JS loads | Hydrates after HTML           | Hydrates after HTML           | Hydrates after HTML                                       |
-| **Speed / FCP**    | Slower first paint      | Fast                          | Very fast                     | Very fast, updated in background                          |
-| **SEO**            | Poor                    | Good                          | Excellent                     | Excellent                                                 |
-| **Best use case**  | Interactive apps        | Dynamic pages                 | Static pages                  | Mostly static pages with occasional updates               |
-| **Server load**    | Low                     | Higher                        | Very low                      | Low                                                       |
-
-Summary: 
-- CSR → Server sends empty HTML → React builds UI
-- SSR → Server builds HTML per request → React hydrates
-- SSG → Server builds HTML at build time → React hydrates
-- ISR → Server builds HTML at build time + regenerates later → React hydrates
-
 
 # Folder and File Conventions:
 
