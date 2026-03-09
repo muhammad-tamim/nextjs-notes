@@ -19,6 +19,7 @@
   - [Difference Between CSR, SSR, SSG, ISR:](#difference-between-csr-ssr-ssg-isr)
   - [Fetch API Different Rendering Behavior on Next.js:](#fetch-api-different-rendering-behavior-on-nextjs)
     - [Static Rendering (SSG) with Fetch:](#static-rendering-ssg-with-fetch)
+      - [dynamicParams](#dynamicparams)
     - [Dynamic Rendering (SSR) with Fetch:](#dynamic-rendering-ssr-with-fetch)
     - [Incremental Static Regeneration (ISR) with Fetch:](#incremental-static-regeneration-isr-with-fetch)
 - [Folder and File Conventions:](#folder-and-file-conventions)
@@ -603,6 +604,56 @@ export default async function PostDetailsPage({ params }: PageProps) {
   )
 }
 ```
+- generateStaticParams defines which dynamic pages should be statically generated at build time.
+
+#### dynamicParams
+
+By default dynamic params are set to true, This allows Next.js to generate static pages at runtime for those dynamic segments that are not returned by generateStaticParams. Means if a user navigates to /ssg/1000 which was not pre-generated then Next.js creates the static page on-demand instead of showing 404.
+
+But if we set dynamic params to false, then Any dynamic route not returned by generateStaticParams will return 404. 
+
+```tsx
+// For dynamic routes: 
+// app/ssg/[id]/page.tsx
+
+export const dynamicParams = false
+
+type Post = {
+  userId: number
+  id: number
+  title: string
+  body: string
+}
+
+type PageProps = {
+    params: Promise<{ id: string }>
+}
+
+export async function generateStaticParams() {
+  const res = await fetch("https://jsonplaceholder.typicode.com/posts")
+
+  const posts: Post[] = await res.json()
+
+  return posts.map(post => ({
+    id: post.id.toString()
+  }))
+}
+
+export default async function PostDetailsPage({ params }: PageProps) {
+  const res = await fetch(`https://jsonplaceholder.typicode.com/posts/${params.id}`)
+
+  const post: Post = await res.json()
+
+  return (
+    <div>
+      <h1>Post Details</h1>
+      <h2>{post.title}</h2>
+      <p>{post.body}</p>
+    </div>
+  )
+}
+```
+
 
 ### Dynamic Rendering (SSR) with Fetch: 
 
