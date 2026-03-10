@@ -18,10 +18,13 @@
   - [4. Incremental Static Regeneration(ISR):](#4-incremental-static-regenerationisr)
   - [Difference Between CSR, SSR, SSG, ISR:](#difference-between-csr-ssr-ssg-isr)
   - [Fetch API Different Rendering Behavior on Next.js:](#fetch-api-different-rendering-behavior-on-nextjs)
+    - [Client Side Rendering (CSR) with fetch:](#client-side-rendering-csr-with-fetch)
+    - [Dynamic Rendering (SSR) with Fetch:](#dynamic-rendering-ssr-with-fetch)
     - [Static Rendering (SSG) with Fetch:](#static-rendering-ssg-with-fetch)
       - [dynamicParams](#dynamicparams)
-    - [Dynamic Rendering (SSR) with Fetch:](#dynamic-rendering-ssr-with-fetch)
     - [Incremental Static Regeneration (ISR) with Fetch:](#incremental-static-regeneration-isr-with-fetch)
+  - [More About Fetch API:](#more-about-fetch-api)
+    - [Request Memoization + Chasing:](#request-memoization--chasing)
 - [Folder and File Conventions:](#folder-and-file-conventions)
   - [Top-level Folders:](#top-level-folders)
   - [Top-level Files:](#top-level-files)
@@ -545,6 +548,89 @@ Summary:
 ## Fetch API Different Rendering Behavior on Next.js: 
 In Next.js App Router, the fetch function behaves differently from standard browser fetch. Next.js optimizes it for server components, adding caching, deduplication, and revalidation logic. Understanding this is key to predicting whether a page is SSG, SSR, or ISR.
 
+### Client Side Rendering (CSR) with fetch: 
+
+```tsx
+// components/posts.tsx
+"use client"
+
+import { useEffect, useState } from "react"
+
+export default function Posts() {
+  const [posts, setPosts] = useState([])
+
+  useEffect(() => {
+    fetch("https://jsonplaceholder.typicode.com/posts")
+      .then((res) => res.json())
+      .then(setPosts)
+  }, [])
+
+  return <div>{posts.length}</div>
+}
+```
+
+### Dynamic Rendering (SSR) with Fetch: 
+
+
+```tsx
+// app/ssr/page.tsx
+
+type Post = {
+  id: number
+  title: string
+}
+
+export default async function SSRPage() {
+  const res = await fetch("https://jsonplaceholder.typicode.com/posts", {
+    cache: "no-store",
+  })
+
+  const posts: Post[] = await res.json()
+
+  return (
+    <div>
+      <h1>SSR Page</h1>
+      {posts.map(post => (
+        <p key={post.id}>{post.title}</p>
+      ))}
+    </div>
+  )
+}
+```
+
+```tsx
+// app/ssr/[id]/page.tsx
+
+type Post = {
+  userId: number
+  id: number
+  title: string
+  body: string
+}
+
+type PageProps = {
+  params: {
+    id: string
+  }
+}
+
+export default async function PostDetailsPage({ params }: PageProps) {
+  const res = await fetch(`https://jsonplaceholder.typicode.com/posts/${params.id}`)
+
+  const post: Post = await res.json()
+
+  return (
+    <div>
+      <h1>Post Details</h1>
+      <h2>{post.title}</h2>
+      <p>{post.body}</p>
+    </div>
+  )
+}
+```
+
+
+
 ### Static Rendering (SSG) with Fetch: 
 
 ```tsx
@@ -659,66 +745,6 @@ export default async function PostDetailsPage({ params }: PageProps) {
 }
 ```
 
-
-### Dynamic Rendering (SSR) with Fetch: 
-
-
-```tsx
-// app/ssr/page.tsx
-
-type Post = {
-  id: number
-  title: string
-}
-
-export default async function SSRPage() {
-  const res = await fetch("https://jsonplaceholder.typicode.com/posts", {
-    cache: "no-store",
-  })
-
-  const posts: Post[] = await res.json()
-
-  return (
-    <div>
-      <h1>SSR Page</h1>
-      {posts.map(post => (
-        <p key={post.id}>{post.title}</p>
-      ))}
-    </div>
-  )
-}
-```
-
-```tsx
-// app/ssr/[id]/page.tsx
-
-type Post = {
-  userId: number
-  id: number
-  title: string
-  body: string
-}
-
-type PageProps = {
-  params: {
-    id: string
-  }
-}
-
-export default async function PostDetailsPage({ params }: PageProps) {
-  const res = await fetch(`https://jsonplaceholder.typicode.com/posts/${params.id}`)
-
-  const post: Post = await res.json()
-
-  return (
-    <div>
-      <h1>Post Details</h1>
-      <h2>{post.title}</h2>
-      <p>{post.body}</p>
-    </div>
-  )
-}
-```
 
 ### Incremental Static Regeneration (ISR) with Fetch: 
 
@@ -869,6 +895,66 @@ export default async function PostDetailsPage({ params }: PageProps) {
   )
 }
 ```
+
+## More About Fetch API: 
+### Request Memoization + Chasing: 
+Request memoization prevents duplicate fetch calls within the same page render, and caching stores the result of that fetch for reuse across different pages.
+
+```tsx
+// components/A.tsx
+export default async function A() {
+  const data = await fetch("https://jsonplaceholder.typicode.com/posts").then(res => res.json())
+  return <div>A: {data.length}</div>
+}
+
+// components/B.tsx
+export default async function B() {
+  const data = await fetch("https://jsonplaceholder.typicode.com/posts").then(res => res.json())
+  return <div>B: {data.length}</div>
+}
+```
+
+```tsx
+// app/page.tsx
+import A from "@/components/A"
+import B from "@/components/B"
+
+export default function Page() {
+  return (
+    <div>
+      <A />
+      <B />
+    </div>
+  )
+}
+```
+
+```tsx
+// app/dashboard/page.tsx
+import A from "@/components/A"
+import B from "@/components/B"
+
+export default function DashboardPage() {
+  return (
+    <div>
+      <A />
+      <B />
+    </div>
+  )
+}
+```
+
+
+whats happens here, Since this example are we are used are gonna be statically rendered, so during build time on server: 
+- For / page:
+  - Both <A /> and <B /> call the same fetch URL, so Request memoization applies, and the fetch is executed once for <A />, and <B /> reuses the result.
+  - The result of fetch is chased for the / page.
+
+- For /dashboard page:
+  - Both <A /> and <B /> call the same fetch URL, so Request memoization applies, and the fetch is executed once for <A />, and <B /> reuses the result.
+  - Since the fetch result was already cached by Next.js from the / build, Next.js reuses that cached data for the /dashboard page instead of making a new network request.
+
+So here, two separate memoization lifecycles happen (one per page render), but the fetch result cache is shared across pages.
 
 # Folder and File Conventions:
 
@@ -3367,6 +3453,7 @@ const roboto = localFont({
   ],
 })
 ```
+
 
 # Others: 
 ## Server Only and Client Only: 
