@@ -58,9 +58,10 @@
 - [Font Optimization:](#font-optimization)
   - [Local fonts:](#local-fonts)
 - [Others:](#others)
-  - [Server Only Code:](#server-only-code)
+  - [Server Only and Client Only:](#server-only-and-client-only)
   - [Third Party Packages:](#third-party-packages)
   - [Context Providers:](#context-providers)
+  - [Interleaving Server and Client Components:](#interleaving-server-and-client-components)
 
 # Setup: 
 
@@ -3368,7 +3369,7 @@ const roboto = localFont({
 ```
 
 # Others: 
-## Server Only Code: 
+## Server Only and Client Only: 
 There are many cases where we might accidentally import server-only modules into a Client Component. If those modules contain sensitive logic (for example: database queries, API secrets, or private environment variables), they could potentially end up in the client bundle, exposing sensitive information.
 
 Next.js already prevents many of these mistakes by throwing an error during build time when server APIs are used in the wrong environment. However, developers can still accidentally import server utilities into client components.
@@ -3393,6 +3394,36 @@ Now, if we mistakenly import it to client component, then we see the error on co
 ```tsx
 "use client";
 import { getServerData } from "@/lib/db-utils"; 
+```
+
+In the same way, there are also cases where we might accidentally import client-only code into a Server Component. Some modules depend on browser APIs such as window, document, or React hooks like useState and useEffect. These APIs are only available in the browser and will break if executed on the server.
+
+To prevent this mistake, we can use the client-only package. It marks a module as client-only, so if it gets imported into a Server Component, Next.js will throw an error.
+
+```
+npm i client-only
+```
+
+```tsx
+// lib/browser-utils.ts
+import "client-only";
+
+export function getBrowserTheme() {
+  return window.localStorage.getItem("theme");
+}
+```
+
+Now, if we mistakenly import it into a Server Component, we will see an error.
+
+```tsx
+// app/page.tsx
+import { getBrowserTheme } from "@/lib/browser-utils";
+
+export default function Page() {
+  const theme = getBrowserTheme(); // ❌ Error (browser API on server)
+
+  return <div>{theme}</div>;
+}
 ```
 
 ## Third Party Packages: 
@@ -3481,8 +3512,6 @@ export default function Page() {
 ```
 
 ## Context Providers: 
-
-
 
 ```tsx
 // context/AuthContext.ts
@@ -3617,4 +3646,159 @@ export default function Page() {
 }
 ```
 
-and later codes.........
+## Interleaving Server and Client Components: 
+- Server Component inside another Server Component
+
+```tsx
+// components/PostList.tsx
+
+export default async function PostList() {
+  const posts = await fetch("https://jsonplaceholder.typicode.com/posts").then((res) => res.json())
+
+  return (
+    <ul>
+      {posts.slice(0, 3).map((post: any) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+```tsx
+// app/page.tsx
+
+import PostList from "@/components/PostList"
+
+export default function Page() {
+  return (
+    <div>
+      <h1>Posts</h1>
+      <PostList />
+    </div>
+  )
+}
+```
+
+- Client Component inside another Client Component:
+
+```tsx
+// components/Counter.tsx
+"use client"
+
+import { useState } from "react"
+
+export default function Counter() {
+  const [count, setCount] = useState(0)
+
+  return (
+    <button onClick={() => setCount(count + 1)}>
+      Count: {count}
+    </button>
+  )
+}
+```
+
+```tsx
+// components/Dashboard.tsx
+"use client"
+
+import Counter from "./Counter"
+
+export default function Dashboard() {
+  return (
+    <div>
+      <h2>Dashboard</h2>
+      <Counter />
+    </div>
+  )
+}
+```
+
+- Client Component inside a Server Component: 
+
+```tsx
+// components/LikeButton.tsx
+"use client"
+
+import { useState } from "react"
+
+export default function LikeButton() {
+  const [likes, setLikes] = useState(0)
+
+  return (
+    <button onClick={() => setLikes(likes + 1)}>
+      Likes: {likes}
+    </button>
+  )
+}
+```
+
+```tsx
+// app/page.tsx
+import LikeButton from "@/components/LikeButton"
+
+export default function Page() {
+  return (
+    <div>
+      <h1>Article</h1>
+      <LikeButton />
+    </div>
+  )
+}
+```
+
+- Server Component inside a Client Component: 
+
+```tsx
+// components/Modal.tsx
+"use client"
+
+export default function Modal({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <div className="modal">
+      {children}
+    </div>
+  )
+}
+```
+
+```tsx
+// components/UserInfo.tsx
+export default async function UserInfo() {
+  return <p>User: Tamim</p>
+}
+```
+
+```tsx
+// app/page.tsx
+import Modal from "@/components/Modal"
+import UserInfo from "@/components/UserInfo"
+
+export default function Page() {
+  return (
+    <Modal>
+      <UserInfo />
+    </Modal>
+  )
+}
+```
+
+**Note:** A Client Component cannot directly import a Server Component. Instead, a Server Component can pass another Server Component to a Client Component as children or props.
+
+Even when a Server Component is rendered inside a Client Component through children, it does not become a Client Component. It is still executed on the server, and only its rendered output is sent to the client.
+
+```tsx
+// components/ClientComponent.tsx
+"use client"
+
+import PostList from "./PostList" // not allowed
+
+export default function ClientComponent() {
+  return <PostList />
+}
+```
