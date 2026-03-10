@@ -60,6 +60,7 @@
 - [Others:](#others)
   - [Server Only Code:](#server-only-code)
   - [Third Party Packages:](#third-party-packages)
+  - [Context Providers:](#context-providers)
 
 # Setup: 
 
@@ -3478,3 +3479,142 @@ export default function Page() {
   )
 }
 ```
+
+## Context Providers: 
+
+
+
+```tsx
+// context/AuthContext.ts
+
+import { createContext } from "react"
+
+export type User = {
+  name: string
+}
+
+export type AuthContextType = {
+  user: User | null
+  login: () => void
+  logout: () => void
+}
+
+export const AuthContext = createContext<AuthContextType | null>(null)
+```
+
+```tsx
+// providers/AuthProvider.tsx
+
+"use client"
+
+import { useState } from "react"
+import { AuthContext, User } from "@/context/AuthContext"
+
+export default function AuthProvider({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const [user, setUser] = useState<User | null>(null)
+
+  const login = () => {
+    setUser({ name: "Tamim" })
+  }
+
+  const logout = () => {
+    setUser(null)
+  }
+
+
+  const authInfo = {
+    user, 
+    login, 
+    logout
+  }
+
+  return (
+    <AuthContext.Provider value={authInfo}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
+```
+
+```tsx
+// hooks/useAuth.ts
+
+"use client"
+
+import { useContext } from "react"
+import { AuthContext } from "@/context/AuthContext"
+
+export default function useAuth() {
+  const context = useContext(AuthContext)
+
+  if (!context) {
+    throw new Error("useAuth must be used inside AuthProvider")
+  }
+
+  return context
+}
+```
+
+```tsx
+// app/layout.tsx
+
+import AuthProvider from "@/providers/AuthProvider"
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html>
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
+    </html>
+  )
+}
+```
+
+```tsx
+// components/AuthButton.tsx
+
+"use client"
+
+import useAuth from "@/hooks/useAuth"
+
+export default function AuthButton() {
+  const { user, login, logout } = useAuth()
+
+  if (user) {
+    return (
+      <>
+        <p>Welcome {user.name}</p>
+        <button onClick={logout}>Logout</button>
+      </>
+    )
+  }
+
+  return <button onClick={login}>Login</button>
+}
+```
+
+```tsx
+// app/page.tsx
+
+import AuthButton from "@/components/AuthButton"
+
+export default function Page() {
+  return (
+    <div>
+      <h1>Home</h1>
+      <AuthButton />
+    </div>
+  )
+}
+```
+
+and later codes.........
