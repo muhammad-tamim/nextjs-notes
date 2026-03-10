@@ -26,6 +26,7 @@
   - [More About Fetch API:](#more-about-fetch-api)
     - [Request Memoization + Chasing:](#request-memoization--chasing)
     - [Loading and Error routes:](#loading-and-error-routes)
+    - [Sequential and Parallel Data Fetching:](#sequential-and-parallel-data-fetching)
 - [Folder and File Conventions:](#folder-and-file-conventions)
   - [Top-level Folders:](#top-level-folders)
   - [Top-level Files:](#top-level-files)
@@ -965,8 +966,15 @@ For now we can remember our early raw React project, where we fetch data on useE
 // Raw React example
 import { useEffect, useState } from "react"
 
+type Post = {
+  userId: number
+  id: number
+  title: string
+  body: string
+}
+
 function Posts() {
-  const [posts, setPosts] = useState<any[]>([])
+  const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -1002,8 +1010,15 @@ But now we are in Next.js and we know that Next.js suggests us to make data fetc
 // src/app/page.tsx
 import Posts from "@/components/posts"
 
+type Post = {
+  userId: number
+  id: number
+  title: string
+  body: string
+}
+
 export default async function Page() {
-  const posts = await fetch("https://jsonplaceholder.typicode.com/posts")
+  const posts: Post[] = await fetch("https://jsonplaceholder.typicode.com/posts")
     .then(res => res.json())
 
   return (
@@ -1042,6 +1057,79 @@ export default function Error({ error, reset }: { error: Error; reset: () => voi
   )
 }
 ```
+
+### Sequential and Parallel Data Fetching:
+For sequential data fetching We fetch one piece of data at a time. If a component has multiple fetch calls, each fetch waits for the previous one to finish before starting. This is useful when later requests depend on the results of earlier ones, but it can be slower if the requests are independent.
+
+```tsx
+// src/app/page.tsx
+type Post = {
+  userId: number
+  id: number
+  title: string
+  body: string
+}
+
+type User = {
+  id: number
+  name: string
+}
+
+export default async function Page() {
+  const posts: Post[] = await fetch("https://jsonplaceholder.typicode.com/posts")
+    .then(res => res.json())
+
+  const user: User = await fetch(`https://jsonplaceholder.typicode.com/users/${posts[0].userId}`)
+    .then(res => res.json())
+
+  return (
+    <div>
+      <h1>Sequential Fetch Example</h1>
+      <h2>{posts[0].title}</h2>
+      <p>{posts[0].body}</p>
+      <p>First post by: {user.name}</p>
+    </div>
+  )
+}
+```
+
+For parallel data fetching we fetch multiple pieces of data at the same time, without waiting for any of them to finish first. This is faster way to fetch all independent data at a time. 
+
+```tsx
+// src/app/page.tsx
+type Post = {
+  userId: number
+  id: number
+  title: string
+  body: string
+}
+
+type User = {
+  id: number
+  name: string
+}
+
+export default async function Page() {
+  const postsPromise = fetch("https://jsonplaceholder.typicode.com/posts").then(res => res.json())
+  const usersPromise = fetch("https://jsonplaceholder.typicode.com/users").then(res => res.json())
+
+  const [posts, users]: [Post[], User[]] = await Promise.all([postsPromise, usersPromise])
+
+  return (
+    <div>
+      <h1>Parallel Fetch Example</h1>
+      <p>First post by: {users.find(u => u.id === posts[0].userId)?.name}</p>
+      <h2>{posts[0].title}</h2>
+      <p>{posts[0].body}</p>
+    </div>
+  )
+}
+```
+
+
+Note: 
+- use Sequential fetch only when later requests depend on earlier ones.
+- use Parallel fetch only when requests are independent.
 
 # Folder and File Conventions:
 
