@@ -25,6 +25,7 @@
     - [Incremental Static Regeneration (ISR) with Fetch:](#incremental-static-regeneration-isr-with-fetch)
   - [More About Fetch API:](#more-about-fetch-api)
     - [Request Memoization + Chasing:](#request-memoization--chasing)
+    - [Loading and Error routes:](#loading-and-error-routes)
 - [Folder and File Conventions:](#folder-and-file-conventions)
   - [Top-level Folders:](#top-level-folders)
   - [Top-level Files:](#top-level-files)
@@ -897,6 +898,7 @@ export default async function PostDetailsPage({ params }: PageProps) {
 ```
 
 ## More About Fetch API: 
+
 ### Request Memoization + Chasing: 
 Request memoization prevents duplicate fetch calls within the same page render, and caching stores the result of that fetch for reuse across different pages.
 
@@ -955,6 +957,91 @@ whats happens here, Since this example are we are used are gonna be statically r
   - Since the fetch result was already cached by Next.js from the / build, Next.js reuses that cached data for the /dashboard page instead of making a new network request.
 
 So here, two separate memoization lifecycles happen (one per page render), but the fetch result cache is shared across pages.
+
+### Loading and Error routes: 
+For now we can remember our early raw React project, where we fetch data on useEffect and handle data, loading, and error by useState.
+
+```tsx
+// Raw React example
+import { useEffect, useState } from "react"
+
+function Posts() {
+  const [posts, setPosts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch("https://jsonplaceholder.typicode.com/posts")
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch")
+        return res.json()
+      })
+      .then((data) => setPosts(data))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) return <p>Loading...</p>
+  if (error) return <p>Error: {error}</p>
+
+  return (
+    <ul>
+      {posts.slice(0, 5).map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+} 
+```
+
+But now we are in Next.js and we know that Next.js suggests us to make data fetching by Server Components. So In Server Components we cannot use React client hooks like useEffect or useState. So how do we handle loading and error states? that's why Next.js provides two special route files: 
+- loading.tsx → Shown automatically while Server Components are fetching.
+- error.tsx → Shown automatically if an error occurs during fetch or render.
+
+```tsx
+// src/app/page.tsx
+import Posts from "@/components/posts"
+
+export default async function Page() {
+  const posts = await fetch("https://jsonplaceholder.typicode.com/posts")
+    .then(res => res.json())
+
+  return (
+    <div>
+      <h1>Posts</h1>
+      <ul>
+        {posts.slice(0, 5).map(post => (
+          <li key={post.id}>{post.title}</li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+```
+
+```tsx
+// src/app/loading.tsx
+export default function Loading() {
+  return <p>Loading posts, please wait...</p>
+}
+```
+
+```tsx
+// src/app/error.tsx
+"use client"
+
+import { useEffect } from "react"
+
+export default function Error({ error, reset }: { error: Error; reset: () => void }) {
+
+  return (
+    <div>
+      <p>Something went wrong: {error.message}</p>
+      <button onClick={() => reset()}>Try Again</button>
+    </div>
+  )
+}
+```
 
 # Folder and File Conventions:
 
