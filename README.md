@@ -57,6 +57,9 @@
   - [Remote images:](#remote-images)
 - [Font Optimization:](#font-optimization)
   - [Local fonts:](#local-fonts)
+- [Others:](#others)
+  - [Server Only Code:](#server-only-code)
+  - [Third Party Packages:](#third-party-packages)
 
 # Setup: 
 
@@ -3361,4 +3364,117 @@ const roboto = localFont({
     },
   ],
 })
+```
+
+# Others: 
+## Server Only Code: 
+There are many cases where we might accidentally import server-only modules into a Client Component. If those modules contain sensitive logic (for example: database queries, API secrets, or private environment variables), they could potentially end up in the client bundle, exposing sensitive information.
+
+Next.js already prevents many of these mistakes by throwing an error during build time when server APIs are used in the wrong environment. However, developers can still accidentally import server utilities into client components.
+
+To make this safer and improve the developer experience, we can use the server-only package. It explicitly marks a module as server-only, and if a Client Component imports it, Next.js will immediately throw an error.
+
+```
+npm i server-only
+```
+
+```tsx
+// lib/db-utils.ts
+import "server-only";
+
+export async function getServerData() {
+  // sensitive server operations
+}
+```
+
+Now, if we mistakenly import it to client component, then we see the error on console as well as browser:
+
+```tsx
+"use client";
+import { getServerData } from "@/lib/db-utils"; 
+```
+
+## Third Party Packages: 
+Many third-party React libraries were built before React Server Components existed. Because of this, they often rely on: useState, useEffect, useContext, window,
+document, DOM APIs etc. These APIs only exist in the browser, so such libraries cannot run inside Server Components. If we try to use them directly in a Server Component, Next.js will throw an error. For example using a UI library like react-hot-toast:
+
+```tsx
+// app/page.tsx
+import { toast } from "react-hot-toast"
+
+export default function Page() {
+  toast.success("Hello") //  Error 
+
+  return <div>Hello</div>
+}
+```
+
+For that problem, The solution is wrap the third-party code in a client component: 
+
+```tsx
+// components/toast-provider.tsx
+
+"use client"
+
+import { Toaster } from "react-hot-toast"
+
+export default function ToastProvider() {
+  return <Toaster position="top-right" reverseOrder={false} />
+}
+```
+
+```tsx
+// app/layout.tsx
+
+import ToastProvider from "@/components/toast-provider"
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html>
+      <body>
+        {children}
+        <ToastProvider />
+      </body>
+    </html>
+  )
+}
+```
+
+```tsx
+// components/toast-button.tsx
+
+"use client"
+
+import { toast } from "react-hot-toast"
+
+export default function ToastButton() {
+  const handleClick = () => {
+    toast.success("Hello! Toast works 🎉")
+  }
+
+  return (
+    <button onClick={handleClick}>
+      Show Toast
+    </button>
+  )
+}
+```
+
+```tsx
+// app/page.tsx
+
+import ToastButton from "@/components/toast-button"
+
+export default function Page() {
+  return (
+    <div>
+      <h1>Home Page</h1>
+      <ToastButton />
+    </div>
+  )
+}
 ```
