@@ -43,6 +43,8 @@
   - [Route Groups:](#route-groups)
   - [API Routes:](#api-routes)
     - [Handling CRUD:](#handling-crud)
+    - [Handling Forms in Next.js:](#handling-forms-in-nextjs)
+      - [Without Server Actions (traditional react approach):](#without-server-actions-traditional-react-approach)
   - [Private Folders:](#private-folders)
 - [Linking and Navigating:](#linking-and-navigating)
     - [`<Link>` (Declarative Navigation):](#link-declarative-navigation)
@@ -2750,6 +2752,207 @@ export async function PATCH(req: NextRequest, { params }: PageProps) {
     })
 } 
 ```
+
+### Handling Forms in Next.js: 
+
+#### Without Server Actions (traditional react approach): 
+
+```tsx
+// src/app/add-items/page.tsx
+"use client"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+
+export default function AddItemsPage() {
+    const router = useRouter()
+    const [name, setName] = useState("")
+    const [description, setDescription] = useState("")
+    const [loading, setLoading] = useState(false)
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setLoading(true)
+        await fetch("/api/items", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, description }),
+        })
+        setLoading(false)
+        router.push("/") // navigate to homepage after adding
+    }
+
+    return (
+        <div className="p-8 max-w-md mx-auto">
+            <h1 className="text-2xl font-bold mb-6">Add New Item</h1>
+
+            <form className="space-y-4" onSubmit={handleSubmit}>
+
+                <div>
+                    <label className="block mb-1 font-semibold">Name</label>
+                    <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="input input-bordered w-full" required />
+                </div>
+
+                <div>
+                    <label className="block mb-1 font-semibold">Description</label>
+                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="textarea textarea-bordered w-full" required />
+                </div>
+
+                <button type="submit" className="btn btn-primary" disabled={loading}>Add Item</button>
+            </form>
+        </div>
+    )
+}
+```
+
+```tsx
+// src/app/page.tsx
+
+import ClientActions from "@/components/ClientActions"
+import Link from "next/link"
+
+type Items = {
+  _id: string,
+  name: string,
+  description: string
+}
+
+export default async function HomePage() {
+  const res = await fetch('http://localhost:3000/api/items')
+  const data = await res.json()
+  const items: Items[] = data.result
+
+  return (
+    <div className="p-8">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">All Items</h1>
+        <Link href="/add-items" className="btn btn-primary">
+          Add Item
+        </Link>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="table w-full">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Description</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <ClientActions key={item._id} item={item} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+```
+
+```tsx
+// src/components/clientActions.tsx
+
+"use client"
+
+import { useState } from "react"
+
+type Item = {
+    _id: string
+    name: string
+    description: string
+}
+
+export default function ClientActions({ item }: { item: Item }) {
+    const [viewModal, setViewModal] = useState(false)
+    const [editModal, setEditModal] = useState(false)
+    const [name, setName] = useState(item.name)
+    const [description, setDescription] = useState(item.description)
+
+    const handleDelete = async () => {
+        const res = await fetch(`/api/items/${item._id}`, { method: "DELETE" })
+        const data = await res.json()
+
+        if (data.result.deletedCount) {
+            alert("Item Deleted")
+            window.location.reload()
+        }
+    }
+
+    const handleEditSubmit = async () => {
+        const patchObj = { name, description }
+        const res = await fetch(`/api/items/${item._id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(patchObj),
+        })
+        const data = await res.json()
+
+        if (data.result.modifiedCount) {
+            alert("Item Updated")
+            window.location.reload()
+        }
+    }
+
+    return (
+        <>
+            <tr>
+                <td>{item.name}</td>
+                <td>{item.description}</td>
+                <td className="space-x-2">
+                    <button className="btn btn-sm btn-info" onClick={() => setViewModal(true)}>View</button>
+                    <button className="btn btn-sm btn-warning" onClick={() => setEditModal(true)}>
+                        Edit
+                    </button>
+                    <button className="btn btn-sm btn-error" onClick={handleDelete}>
+                        Delete
+                    </button>
+                </td>
+            </tr>
+
+            {viewModal && (
+                <div className="modal modal-open">
+                    <div className="modal-box">
+                        <h3 className="font-bold text-lg">{item.name}</h3>
+                        <p className="py-4">{item.description}</p>
+                        <div className="modal-action">
+                            <button className="btn" onClick={() => setViewModal(false)}>Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {editModal && (
+                <div className="modal modal-open">
+                    <div className="modal-box">
+                        <h3 className="font-bold text-lg mb-4">Edit Item</h3>
+
+                        <div className="space-y-2">
+                            <input type="text" className="input input-bordered w-full" value={name} onChange={(e) => setName(e.target.value)} />
+                            <textarea className="textarea textarea-bordered w-full" value={description} onChange={(e) => setDescription(e.target.value)} />
+                        </div>
+
+                        <div className="modal-action">
+                            <button className="btn btn-primary"
+                                onClick={() => {
+                                    handleEditSubmit()
+                                    setEditModal(false)
+                                }}>
+                                Save
+                            </button>
+
+                            <button className="btn" onClick={() => setEditModal(false)}>Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
+    )
+}
+```
+
 
 ## Private Folders:
 Private folders (_folderName) used to organize internal components, helpers, or utilities of a route without affecting the URL
