@@ -40,10 +40,9 @@
     - [Conditional Routes:](#conditional-routes)
   - [Intercepting Routes:](#intercepting-routes)
     - [Interception in parallel route:](#interception-in-parallel-route)
+  - [Route Groups:](#route-groups)
   - [API Routes:](#api-routes)
     - [Handling CRUD:](#handling-crud)
-    - [Query Parameters:](#query-parameters)
-  - [Route Groups:](#route-groups)
   - [Private Folders:](#private-folders)
 - [Linking and Navigating:](#linking-and-navigating)
     - [`<Link>` (Declarative Navigation):](#link-declarative-navigation)
@@ -2559,120 +2558,6 @@ export default async function PhotoPage({ params }: { params: { id: string } }) 
 }
 ```
 
-## API Routes: 
-API Routes or Route Handlers in Next.js are built-in server endpoints that let you implement backend logic and database operations inside the same project, without needing a separate Express or Node server.
-
-### Handling CRUD: 
-
-```tsx
-// src/lib/dbConnect.ts
-import { MongoClient, ServerApiVersion } from "mongodb";
-
-
-export function dbConnect(collectionName: string) {
-    const uri = process.env.MONGO_URI
-
-    const client = new MongoClient(uri, {
-        serverApi: {
-            version: ServerApiVersion.v1,
-            strict: true,
-            deprecationErrors: true,
-        }
-    })
-
-    return client.db(process.env.DB_NAME).collection(collectionName)
-}
-```
-
-```tsx
-// src/app/api/items/routes
-// http://localhost:3000/api/items
-
-import { dbConnect } from "@/lib/dbConnect"
-import { NextRequest } from "next/server"
-
-export async function GET() {
-    const result = dbConnect("itemsCollection").find({}).toArray()
-    return Response.json(result)
-}
-
-export async function POST(req: NextRequest) {
-    const postedData = await req.json()
-    const result = dbConnect("itemsCollection").insertOne(postedData)
-    return Response.json({ result })
-}
-```
-
-```tsx
-// src/app/api/items/[id]/routes
-// http://localhost:3000/api/items/id
-
-import { dbConnect } from "@/lib/dbConnect"
-import { ObjectId } from "mongodb"
-import { NextRequest } from "next/server"
-
-
-type PageProps = {
-    params: Promise<{ id: string }>
-}
-
-
-export async function GET(req: NextRequest, { params }: PageProps) {
-    const p = await params
-    const result = dbConnect("itemsCollection").findOne({ _id: new ObjectId(p.id) })
-
-    return Response.json(result)
-}
-
-export async function DELETE(req: NextRequest, { params }: PageProps) {
-    const p = await params
-    const result = dbConnect("itemsCollection").deleteOne({ _id: new ObjectId(p.id) })
-
-    return Response.json(result)
-}
-
-
-export async function PATCH(req: NextRequest, { params }: PageProps) {
-    const p = await params
-    const updatedData = await req.json()
-    const filter = { _id: new ObjectId(p.id) }
-    const updatedData = {
-      $set: {
-        updatedData
-      }
-    }
-    const result = dbConnect("itemsCollection").updateOne(filter, updatedData)
-
-    return Response.json(result)
-}
-```
-
-### Query Parameters: 
-
-```ts
-export async function GET(req: NextRequest) {
-
-    const searchParams = req.nextUrl.searchParams
-
-    const page = Number(searchParams.get("page")) 
-    const limit = Number(searchParams.get("limit")) 
-
-    const skip = (page - 1) * limit
-
-    const result = await dbConnect("itemsCollection")
-        .find({})
-        .skip(skip)
-        .limit(limit)
-        .toArray()
-
-    return Response.json({
-        page,
-        limit,
-        data: result
-    })
-}
-```
-
 ## Route Groups:
 Route groups (folderName) used to separate features or sections of a route without affecting the URL.
 
@@ -2694,137 +2579,177 @@ Means Routes groups don't create routes.
 ![image](./assets/images/Folder-and-file-conventions/route-groups.avif)
 
 
-<!-- ## Parallel Routes: 
-Parallel Routes (@folder) render multiple routes at the same time without unmounting each other. Perfect for sidebars, persistent headers, dashboards.
+## API Routes: 
+API Routes or Route Handlers in Next.js are built-in server endpoints that let you implement backend logic and database operations inside the same project, without needing a separate Express or Node server.
+
+### Handling CRUD: 
 
 ```
-app/
- ├─ dashboard/
- │   ├─ layout.tsx
- │   ├─ page.tsx
- │   ├─ @sidebar/
- │   │   └─ page.tsx
- │   └─ settings/
- │       └─ page.tsx
+GET    /api/items
+POST   /api/items
+```
+```
+GET    /api/items/get-with-pagination?page=1&limit=10
 ```
 
-```tsx
-// dashboard/layout.tsx
-
-type LayoutProps = {
-  children: React.ReactNode
-  sidebar: React.ReactNode
-}
-
-export default function DashboardLayout({
-  children,
-  sidebar,
-}: LayoutProps) {
-  return (
-    <div className="flex">
-      <div className="w-1/4 bg-gray-100 p-4">
-        {sidebar}
-      </div>
-
-      <div className="flex-1 p-6">
-        {children}
-      </div>
-    </div>
-  )
-}
+```
+GET    /api/items/:id
+PATCH  /api/items/:id
+DELETE /api/items/:id
 ```
 
 ```tsx
-// dashboard/page.tsx
+// src/lib/dbConnect.ts
 
-export default function DashboardHome() {
-  return <h1>Dashboard Home</h1>
+import { MongoClient, ServerApiVersion } from "mongodb"
+
+const uri = process.env.MONGO_URI as string
+const dbName = process.env.MONGO_DB_NAME as string
+
+const client = new MongoClient(uri, {
+    serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true,
+    },
+})
+
+export async function dbConnect() {
+
+    await client.connect()
+    return client.db(dbName)
+}
+```
+
+```
+# .env.local
+
+MONGO_URI=mongodb://localhost:27017/
+MONGO_DB_NAME=test-DB
+```
+
+
+```tsx
+// src/app/api/items/route.ts
+
+import { dbConnect } from "@/lib/dbConnect"
+import { NextRequest } from "next/server"
+
+const db = await dbConnect()
+const itemsCollection = db.collection("items")
+
+
+export async function GET() {
+    // const itemsCollection = await dbConnect("items")
+
+    const result = await itemsCollection.find({}).toArray()
+
+    return Response.json({
+        success: true,
+        message: "Items fetched successfully",
+        result
+    })
+}
+
+export async function POST(req: NextRequest) {
+    const body = await req.json()
+
+    const result = await itemsCollection.insertOne(body)
+
+    return Response.json({
+        success: true,
+        message: "Items created successfully",
+        result
+    })
 }
 ```
 
 ```tsx
-// @sidebar/page.tsx
+// src/app/api/items/get-with-pagination/route.ts
 
-export default function Sidebar() {
-  return (
-    <div>
-      <h2>Dashboard Sidebar</h2>
-      <ul>
-        <li>Overview</li>
-        <li>Settings</li>
-      </ul>
-    </div>
-  )
+import { dbConnect } from "@/lib/dbConnect"
+import { NextRequest } from "next/server"
+
+const db = await dbConnect()
+const itemsCollection = db.collection("items")
+
+export async function GET(req: NextRequest) {
+    const searchParams = req.nextUrl.searchParams
+
+    const page = Number(searchParams.get("page") ?? 1)
+    const limit = Number(searchParams.get("limit") ?? 10)
+
+    const skip = (page - 1) * limit
+
+    const total = await itemsCollection.countDocuments();
+    const result = await itemsCollection.find({}).skip(skip).limit(limit).toArray()
+
+    return Response.json({
+        success: true,
+        message: "items retrieved successfully",
+        result,
+        meta: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+        }
+    })
 }
 ```
 
-so, when you visit `/dashboard`, Next renders:
-- @sidebar/page.tsx → into sidebar
-- dashboard/page.tsx → into children
+```tsx  
+// src/app/api/items/[id]/route.ts
 
-But when you When you navigate to `/dashboard/settings`, next.js: 
-- Only render changed children.
-- @sidebar stays mounted.
- -->
+import { dbConnect } from "@/lib/dbConnect"
+import { ObjectId } from "mongodb";
+import { NextRequest } from "next/server"
 
-<!-- ## Intercepted Routes: 
-Intercepted routes allow overlays or modals a route on top of the current route, without unmounting the underlying route.
+const db = await dbConnect()
+const itemsCollection = db.collection("items")
 
-In Next.js there are 4 types of intercepted available: 
+type PageProps = {
+    params: Promise<{ id: string }>
+}
 
-### 1. Intercept Sibling (.)folder: 
-Preview a sibling page in a modal.
+export async function GET(req: NextRequest, { params }: PageProps) {
+    const { id } = await params
+    const result = await itemsCollection.findOne({ _id: new ObjectId(id) })
 
+    return Response.json({
+        success: true,
+        message: "item retrieved successfully",
+        result,
+    })
+}
+
+export async function DELETE(req: NextRequest, { params }: PageProps) {
+    const { id } = await params
+    const result = await itemsCollection.deleteOne({ _id: new ObjectId(id) })
+
+    return Response.json({
+        success: true,
+        message: "item deleted successfully",
+        result,
+    })
+}
+
+export async function PATCH(req: NextRequest, { params }: PageProps) {
+    const { id } = await params
+    const updatedData = await req.json()
+    const filter = { _id: new ObjectId(id) }
+    const updatedDoc = {
+        $set: updatedData
+    }
+    const result = await itemsCollection.updateOne(filter, updatedDoc)
+
+    return Response.json({
+        success: true,
+        message: "item updated successfully",
+        result,
+    })
+} 
 ```
-app/
- ├─ dashboard/
- │   ├─ page.js
- │   └─ (.)details/
- │       └─ page.js
-```
-
-here, Navigate to /dashboard/(.)details → modal appears on top of dashboard without  un-mounted Dashboard.
-
-### 2. Intercept Parent (..)folder: 
-Open a child route as an overlay on the parent.
-
-```
-app/
- ├─ projects/
- │   ├─ page.js
- │   └─ (..)tasks/
- │       └─ page.js
-```
-
-Navigating to /projects/(..)tasks shows tasks overlay while the parent projects page remains visible.
-
-### 3. Intercept Two Levels (..)(..)folder: 
-Deep nested modals or overlays.
-
-```
-app/
- ├─ organization/
- │   ├─ page.js
- │   └─ teams/
- │       └─ page.js
- │       └─ (..)(..)members/
- │           └─ page.js
-```
-
-Shows members overlay two levels up in the hierarchy.
-
-### 4. Intercept From Root (...)folder
-Global modal anywhere in the app.
-
-```
-app/
- ├─ page.js
- └─ (...)loginModal/
-     └─ page.js
-```
-Navigate to / (...)loginModal → modal opens on top of any current page. Base page remains mounted, state preserved.
- -->
-
 
 ## Private Folders:
 Private folders (_folderName) used to organize internal components, helpers, or utilities of a route without affecting the URL

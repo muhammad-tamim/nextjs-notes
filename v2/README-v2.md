@@ -37,6 +37,12 @@
   - [revalidateTag:](#revalidatetag-1)
   - [updateTag:](#updatetag-1)
   - [revalidatePath:](#revalidatepath)
+  - [Parallel Routes:](#parallel-routes)
+  - [Intercepted Routes:](#intercepted-routes)
+    - [1. Intercept Sibling (.)folder:](#1-intercept-sibling-folder)
+    - [2. Intercept Parent (..)folder:](#2-intercept-parent-folder)
+    - [3. Intercept Two Levels (..)(..)folder:](#3-intercept-two-levels-folder)
+    - [4. Intercept From Root (...)folder](#4-intercept-from-root-folder)
 
 
 # Cache Components: 
@@ -917,10 +923,132 @@ export async function updateUser(id: string) {
   revalidatePath('/profile')
 ```
 
+## Parallel Routes: 
+Parallel Routes (@folder) render multiple routes at the same time without unmounting each other. Perfect for sidebars, persistent headers, dashboards.
 
+```
+app/
+ ├─ dashboard/
+ │   ├─ layout.tsx
+ │   ├─ page.tsx
+ │   ├─ @sidebar/
+ │   │   └─ page.tsx
+ │   └─ settings/
+ │       └─ page.tsx
+```
 
+```tsx
+// dashboard/layout.tsx
 
+type LayoutProps = {
+  children: React.ReactNode
+  sidebar: React.ReactNode
+}
 
+export default function DashboardLayout({
+  children,
+  sidebar,
+}: LayoutProps) {
+  return (
+    <div className="flex">
+      <div className="w-1/4 bg-gray-100 p-4">
+        {sidebar}
+      </div>
 
+      <div className="flex-1 p-6">
+        {children}
+      </div>
+    </div>
+  )
+}
+```
 
+```tsx
+// dashboard/page.tsx
+
+export default function DashboardHome() {
+  return <h1>Dashboard Home</h1>
+}
+```
+
+```tsx
+// @sidebar/page.tsx
+
+export default function Sidebar() {
+  return (
+    <div>
+      <h2>Dashboard Sidebar</h2>
+      <ul>
+        <li>Overview</li>
+        <li>Settings</li>
+      </ul>
+    </div>
+  )
+}
+```
+
+so, when you visit `/dashboard`, Next renders:
+- @sidebar/page.tsx → into sidebar
+- dashboard/page.tsx → into children
+
+But when you When you navigate to `/dashboard/settings`, next.js: 
+- Only render changed children.
+- @sidebar stays mounted.
+
+## Intercepted Routes: 
+Intercepted routes allow overlays or modals a route on top of the current route, without unmounting the underlying route.
+
+In Next.js there are 4 types of intercepted available: 
+
+### 1. Intercept Sibling (.)folder: 
+Preview a sibling page in a modal.
+
+```
+app/
+ ├─ dashboard/
+ │   ├─ page.js
+ │   └─ (.)details/
+ │       └─ page.js
+```
+
+here, Navigate to /dashboard/(.)details → modal appears on top of dashboard without  un-mounted Dashboard.
+
+### 2. Intercept Parent (..)folder: 
+Open a child route as an overlay on the parent.
+
+```
+app/
+ ├─ projects/
+ │   ├─ page.js
+ │   └─ (..)tasks/
+ │       └─ page.js
+```
+
+Navigating to /projects/(..)tasks shows tasks overlay while the parent projects page remains visible.
+
+### 3. Intercept Two Levels (..)(..)folder: 
+Deep nested modals or overlays.
+
+```
+app/
+ ├─ organization/
+ │   ├─ page.js
+ │   └─ teams/
+ │       └─ page.js
+ │       └─ (..)(..)members/
+ │           └─ page.js
+```
+
+Shows members overlay two levels up in the hierarchy.
+
+### 4. Intercept From Root (...)folder
+Global modal anywhere in the app.
+
+```
+app/
+ ├─ page.js
+ └─ (...)loginModal/
+     └─ page.js
+```
+Navigate to / (...)loginModal → modal opens on top of any current page. Base page remains mounted, state preserved.
 
