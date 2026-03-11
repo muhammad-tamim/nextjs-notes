@@ -48,6 +48,7 @@
       - [With Server Actions:](#with-server-actions)
         - [With server action +  useFormStatus:](#with-server-action---useformstatus)
         - [With server actin + useActionState:](#with-server-actin--useactionstate)
+      - [With Form component:](#with-form-component)
   - [Private Folders:](#private-folders)
 - [Linking and Navigating:](#linking-and-navigating)
     - [`<Link>` (Declarative Navigation):](#link-declarative-navigation)
@@ -3432,6 +3433,129 @@ export async function createItem(prevState: FormState, formData: FormData) {
 ................
 ...............
 ..............
+```
+
+#### With Form component: 
+The Form component by next.js is a wrapper around the native HTML `<form>` element that integrates better with Next.js navigation and server actions.
+
+It provides:
+- Built-in progressive enhancement (Means Even if JavaScript fails, the form still works as a normal HTML form.)
+- Works directly with server actions
+- Avoids page reloads for navigate (feels like `<Link>` navigation)
+
+
+Difference between form tag vs Form component: 
+| Feature           | `<form>` | `next/form` |
+| ----------------- | -------- | ----------- |
+| Server actions    | ✅        | ✅           |
+| Works without JS  | ✅        | ✅           |
+| Router navigation | ❌        | ✅           |
+| Prefetch support  | ❌        | ✅           |
+
+
+```tsx
+// src/app/page.tsx
+
+import ClientActions from "@/components/ClientActions"
+import SearchForm from "@/components/SearchForm"
+import Link from "next/link"
+
+type Items = {
+  _id: string,
+  name: string,
+  description: string
+}
+
+export default async function HomePage() {
+  const res = await fetch('http://localhost:3000/api/items')
+  const data = await res.json()
+  const items: Items[] = data.result
+
+  return (
+    <div className="p-8">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">All Items</h1>
+        <SearchForm />
+        <Link href="/add-items" className="btn btn-primary"> Add Item</Link>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="table w-full">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Description</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <ClientActions key={item._id} item={item} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+```
+
+```tsx
+// src/components/SearchForm.tsx
+
+import Form from "next/form"
+
+export default function SearchForm() {
+    return (
+        <Form action="/search" className="flex gap-2 mb-6">
+            <input type="text" name="name" placeholder="Search items..." className="input input-bordered w-full" required />
+
+            <button type="submit" className="btn btn-primary">Search</button>
+        </Form>
+    )
+}
+```
+
+```tsx
+// src/app/search/page.tsx
+
+import { dbConnect } from "@/lib/dbConnect"
+
+type PageProps = {
+    searchParams: Promise<{ name?: string }>
+}
+
+
+export default async function SearchPage({ searchParams }: PageProps) {
+
+    const { name } = await searchParams
+
+    const db = await dbConnect()
+    const itemsCollection = db.collection("items")
+
+    const result = await itemsCollection.find({ name: { $regex: name, $options: "i" } }).toArray()
+
+    return (
+        <div className="p-8 max-w-3xl mx-auto">
+
+            <h1 className="text-2xl font-bold mb-6">Search Results for: {name}</h1>
+
+            {result.length === 0 && (
+                <p>No items found.</p>
+            )}
+
+            <ul className="space-y-4">
+                {result.map((item) => (
+                    <li key={item._id.toString()} className="border p-4 rounded">
+                        <h3 className="font-semibold">{item.name}</h3>
+                        <p>{item.description}</p>
+                    </li>
+                ))}
+            </ul>
+
+        </div>
+    )
+}
 ```
 
 ## Private Folders:
