@@ -45,6 +45,9 @@
     - [Handling CRUD:](#handling-crud)
     - [Handling Forms in Next.js:](#handling-forms-in-nextjs)
       - [Without Server Actions (traditional react approach):](#without-server-actions-traditional-react-approach)
+      - [With Server Actions:](#with-server-actions)
+        - [With server action +  useFormStatus:](#with-server-action---useformstatus)
+        - [With server actin + useActionState:](#with-server-actin--useactionstate)
   - [Private Folders:](#private-folders)
 - [Linking and Navigating:](#linking-and-navigating)
     - [`<Link>` (Declarative Navigation):](#link-declarative-navigation)
@@ -2953,6 +2956,483 @@ export default function ClientActions({ item }: { item: Item }) {
 }
 ```
 
+#### With Server Actions: 
+Server Actions in Next.js are server-side functions marked with "use server" that can be called directly from any react component (client or server) and allow React components to execute backend logic directly on the server without creating separate API routes, primarily used for handling mutations(create, delete, or update) like form submissions and database operations.
+
+Without server actions the normal next.js api works like this: 
+
+```
+Client component (client)
+      ↓
+fetch('/api/items/:id')
+      ↓
+API route
+      ↓
+MongoDB
+```
+
+but when we used server action the process becomes more short, because server action directly talks to the db: 
+
+```
+Client component
+      ↓
+Server Action
+      ↓
+MongoDB
+```
+
+so here no api route and data fetch api needed for server actions. 
+
+Note: When to use what:
+
+| Use Case      | Best Tool         |
+| ------------- | ----------------- |
+| Data fetching | Server Components |
+| Mutations     | Server Actions    |
+| Public APIs   | Route Handlers    |
+
+
+Server actions features: 
+- Simplified code
+- Improve security because of server component
+- Better performance
+- no api route needed
+
+```tsx
+// src/actions/items.ts
+
+"use server"
+
+import { dbConnect } from "@/lib/dbConnect"
+import { ObjectId } from "mongodb"
+import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
+
+export async function createItem(formData: FormData) {
+
+    const db = await dbConnect()
+    const itemsCollection = db.collection("items")
+
+    const name = formData.get("name") as string
+    const description = formData.get("description") as string
+
+    const insertedData = { name, description }
+
+    await itemsCollection.insertOne(insertedData)
+
+    revalidatePath("/")
+    redirect("/")
+}
+
+export async function deleteItem(id: string) {
+
+    const db = await dbConnect()
+    const itemsCollection = db.collection("items")
+
+    await itemsCollection.deleteOne({ _id: new ObjectId(id) })
+
+    revalidatePath("/")
+}
+
+export async function updateItem(id: string, data: { name: string; description: string }) {
+
+    const db = await dbConnect()
+    const itemsCollection = db.collection("items")
+
+    const filter = { _id: new ObjectId(id) }
+    const updatedDoc = {
+        $set: data
+    }
+
+    await itemsCollection.updateOne(filter, updatedDoc)
+
+    revalidatePath("/")
+}
+```
+
+```tsx
+// src/app/api/items/route.ts
+
+import { dbConnect } from "@/lib/dbConnect"
+
+export async function GET() {
+
+    const db = await dbConnect()
+    const itemsCollection = db.collection("items")
+
+    const result = await itemsCollection.find({}).toArray()
+
+    return Response.json({
+        success: true,
+        message: "Items fetched successfully",
+        result
+    })
+}
+```
+
+```tsx
+// src/app/api/items/[id]/route.ts
+
+import { dbConnect } from "@/lib/dbConnect"
+import { ObjectId } from "mongodb";
+import { NextRequest } from "next/server"
+
+type PageProps = {
+    params: Promise<{ id: string }>
+}
+
+export async function GET(req: NextRequest, { params }: PageProps) {
+
+    const db = await dbConnect()
+    const itemsCollection = db.collection("items")
+
+    const { id } = await params
+    const result = await itemsCollection.findOne({ _id: new ObjectId(id) })
+
+    return Response.json({
+        success: true,
+        message: "item retrieved successfully",
+        result,
+    })
+}
+```
+
+```tsx
+// src/app/page.tsx
+
+import ClientActions from "@/components/ClientActions"
+import Link from "next/link"
+
+type Items = {
+  _id: string,
+  name: string,
+  description: string
+}
+
+export default async function HomePage() {
+  const res = await fetch('http://localhost:3000/api/items')
+  const data = await res.json()
+  const items: Items[] = data.result
+
+  return (
+    <div className="p-8">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">All Items</h1>
+        <Link href="/add-items" className="btn btn-primary">
+          Add Item
+        </Link>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="table w-full">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Description</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <ClientActions key={item._id} item={item} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+```
+
+```tsx
+// src/components/clientActions.tsx
+
+"use client"
+
+import { useState, useTransition } from "react"
+import { deleteItem, updateItem } from "@/actions/items"
+
+type Item = {
+    _id: string
+    name: string
+    description: string
+}
+
+export default function ClientActions({ item }: { item: Item }) {
+    const [viewModal, setViewModal] = useState(false)
+    const [editModal, setEditModal] = useState(false)
+    const [name, setName] = useState(item.name)
+    const [description, setDescription] = useState(item.description)
+
+    const [isPending, startTransition] = useTransition()
+
+    const handleDelete = () => {
+        startTransition(async () => await deleteItem(item._id))
+    }
+
+    const handleEditSubmit = () => {
+        startTransition(async () => await updateItem(item._id, { name, description }))
+    }
+
+    return (
+        <>
+            <tr>
+                <td>{item.name}</td>
+                <td>{item.description}</td>
+                <td className="space-x-2">
+                    <button className="btn btn-sm btn-info" onClick={() => setViewModal(true)}>View</button>
+                    <button className="btn btn-sm btn-warning" onClick={() => setEditModal(true)}>Edit</button>
+                    <button className="btn btn-sm btn-error" onClick={handleDelete}>Delete</button>
+                </td>
+            </tr>
+
+            {viewModal && (
+                <div className="modal modal-open">
+                    <div className="modal-box">
+                        <h3 className="font-bold text-lg">{item.name}</h3>
+                        <p className="py-4">{item.description}</p>
+                        <div className="modal-action">
+                            <button className="btn" onClick={() => setViewModal(false)}>Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {editModal && (
+                <div className="modal modal-open">
+                    <div className="modal-box">
+                        <h3 className="font-bold text-lg mb-4">Edit Item</h3>
+
+                        <div className="space-y-2">
+                            <input className="input input-bordered w-full" value={name} onChange={(e) => setName(e.target.value)} />
+
+                            <textarea className="textarea textarea-bordered w-full" value={description} onChange={(e) => setDescription(e.target.value)} />
+                        </div>
+
+                        <div className="modal-action">
+                            <button className="btn btn-primary"
+                                onClick={() => {
+                                    handleEditSubmit()
+                                    setEditModal(false)
+                                }}
+                                disabled={isPending}>
+                                Save
+                            </button>
+
+                            <button className="btn" onClick={() => setEditModal(false)}>Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
+    )
+}
+```
+
+```tsx
+// src/app/add-items/page.tsx
+
+import { createItem } from "@/actions/items"
+
+export default function AddItemsPage() {
+    return (
+        <div className="p-8 max-w-md mx-auto">
+            <h1 className="text-2xl font-bold mb-6">Add New Item</h1>
+
+            <form className="space-y-4" action={createItem}>
+
+                <div>
+                    <label className="block mb-1 font-semibold">Name</label>
+                    <input type="text" name="name" className="input input-bordered w-full" required />
+                </div>
+
+                <div>
+                    <label className="block mb-1 font-semibold">Description</label>
+                    <textarea name="description" className="textarea textarea-bordered w-full" required />
+                </div>
+
+                <button type="submit" className="btn btn-primary">Add Item</button>
+            </form>
+        </div>
+    )
+}
+```
+
+##### With server action +  useFormStatus:  
+useFormStatus is a react hooks that gives us status information for a form submission. It's super useful for server actions, because when we used server action for a form then our ui is blind, because ui don't know: 
+- Is the form submitting?
+- Should we disable the submit button?
+- Should we show a loading state?
+
+so for solving that problem this hooks give us 4 status: 
+- pending: A boolean that indicates if the parent form is currently submitting
+- data: An object containing the form's submission data
+- method: A string (either get or post) showing the HTTP method being used
+- action: A reference to the function that was passed to the parent form's actin prop
+ 
+**Note:** useFormStatus must be used inside a child component of the form.
+
+```tsx
+// src/app/add-items/page.tsx
+
+import { createItem } from "@/actions/items"
+import SubmitButton from "@/components/SubmitButton"
+
+export default function AddItemsPage() {
+    return (
+        <div className="p-8 max-w-md mx-auto">
+            <h1 className="text-2xl font-bold mb-6">Add New Item</h1>
+
+            <form className="space-y-4" action={createItem}>
+
+                <div>
+                    <label className="block mb-1 font-semibold">Name</label>
+                    <input type="text" name="name" className="input input-bordered w-full" required />
+                </div>
+
+                <div>
+                    <label className="block mb-1 font-semibold">Description</label>
+                    <textarea name="description" className="textarea textarea-bordered w-full" required />
+                </div>
+
+                <SubmitButton></SubmitButton>
+            </form>
+        </div>
+    )
+}
+```
+
+```tsx
+// src/components/SubmitButton.tsx
+
+"use client"
+
+import { useFormStatus } from "react-dom"
+
+export default function SubmitButton() {
+    const { pending } = useFormStatus()
+
+    return (
+        <button type="submit" disabled={pending} className="btn btn-primary">
+            {pending ? "Item Adding..." : "Add Item"}
+        </button>
+    )
+}
+```
+
+##### With server actin + useActionState: 
+useActionState is a react hook thats allows us to update state based on the result of a server action. It is particularly helpful for handing form validation and error message. 
+
+Note: We don't commonly follow this approach for production application, but for learning we can learn
+
+```tsx
+// src/app/add-items/page.tsx
+
+"use client"
+
+import { createItem } from "@/actions/items"
+import { useActionState, useState } from "react"
+
+type Errors = {
+    name?: string,
+    description?: string
+}
+
+type FormState = {
+    errors: Errors
+    values: {
+        name: string
+        description: string
+    }
+}
+
+export default function AddItemsPage() {
+
+    const initialState: FormState = {
+        errors: {},
+        values: { name: "", description: "" },
+    }
+
+    const [state, formAction, isPending] = useActionState(createItem, initialState)
+    const [values, setValues] = useState(initialState.values)
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        setValues(prev => ({ ...prev, [e.target.name]: e.target.value }))
+    }
+
+    return (
+        <div className="p-8 max-w-md mx-auto">
+            <h1 className="text-2xl font-bold mb-6">Add New Item</h1>
+
+            <form className="space-y-4" action={formAction}>
+
+                <div>
+                    <label className="block mb-1 font-semibold">Name</label>
+                    <input type="text" name="name" value={values.name} onChange={handleChange} className="input input-bordered w-full" />
+                    {state.errors.name && <p className="text-red-500 mt-1">{state.errors.name}</p>}
+                </div>
+
+                <div>
+                    <label className="block mb-1 font-semibold">Description</label>
+                    <textarea name="description" value={values.description} onChange={handleChange} className="textarea textarea-bordered w-full" />
+                    {state.errors.description && <p className="text-red-500 mt-1">{state.errors.description}</p>}
+                </div>
+
+                <button type="submit" disabled={isPending} className="btn btn-primary">
+                    {isPending ? "Item Adding..." : "Add Item"}
+                </button>
+            </form>
+        </div>
+    )
+}
+```
+
+```tsx
+// src/actions/items.ts
+
+"use server"
+
+import { dbConnect } from "@/lib/dbConnect"
+import { ObjectId } from "mongodb"
+import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
+
+type Errors = {
+    name?: string,
+    description?: string
+}
+
+type FormState = {
+    errors: Errors
+}
+
+export async function createItem(prevState: FormState, formData: FormData) {
+
+    const db = await dbConnect()
+    const itemsCollection = db.collection("items")
+
+    const name = formData.get("name") as string
+    const description = formData.get("description") as string
+
+    const errors: Errors = {}
+    if (!name) errors.name = "Name cannot be empty"
+    if (!description) errors.description = "Description cannot be empty"
+    if (Object.keys(errors).length > 0) return { errors }
+
+
+    const insertedData = { name, description }
+
+    await itemsCollection.insertOne(insertedData)
+
+    revalidatePath("/")
+    redirect("/")
+}
+
+.................
+................
+...............
+..............
+```
 
 ## Private Folders:
 Private folders (_folderName) used to organize internal components, helpers, or utilities of a route without affecting the URL
